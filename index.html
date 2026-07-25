@@ -257,6 +257,136 @@
     font-size:13px;
   }
 
+  /* ---------- Add card (+ tile) ---------- */
+  .add-tile{
+    background:transparent;
+    border:2px dashed var(--manila-dark);
+    border-radius:2px;
+    min-height:190px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    cursor:pointer;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .add-tile:hover{background:rgba(228,216,184,.35); border-color:var(--rust);}
+  .add-tile .plus{
+    font-family:'Fraunces',serif;
+    font-size:34px;
+    font-weight:500;
+    color:var(--rust);
+    line-height:1;
+  }
+
+  .note .del{
+    position:absolute;
+    top:8px; right:10px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    color:#C9BE9A;
+    cursor:pointer;
+    background:none;
+    border:none;
+    padding:2px 4px;
+  }
+  .note .del:hover{color:var(--rust);}
+
+  /* ---------- Modal (new card form) ---------- */
+  .overlay{
+    position:fixed; inset:0;
+    background:rgba(26,22,17,.55);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    z-index:50;
+  }
+  .overlay.open{display:flex;}
+  .modal{
+    background:var(--card);
+    width:100%;
+    max-width:460px;
+    border-radius:3px;
+    padding:26px 26px 22px;
+    box-shadow:0 20px 50px -10px rgba(0,0,0,.4);
+    position:relative;
+    border:1px solid var(--line);
+  }
+  .modal h2{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:22px;
+    margin:0 0 4px;
+  }
+  .modal .sub{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:#B7AD8E;
+    margin-bottom:18px;
+  }
+  .field{margin-bottom:14px;}
+  .field label{
+    display:block;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.07em;
+    color:var(--ink-soft);
+    margin-bottom:5px;
+  }
+  .field input, .field select, .field textarea{
+    width:100%;
+    font-family:'Lora',serif;
+    font-size:14px;
+    color:var(--ink);
+    border:1px solid var(--line);
+    border-radius:2px;
+    padding:9px 10px;
+    background:var(--paper);
+    outline:none;
+  }
+  .field textarea{resize:vertical; min-height:70px; font-family:'Lora',serif;}
+  .field select{font-family:'IBM Plex Mono',monospace; font-size:12.5px;}
+  .field input:focus, .field select:focus, .field textarea:focus{border-color:var(--rust);}
+  .modal-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:6px;
+  }
+  .btn{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    padding:9px 18px;
+    border-radius:2px;
+    cursor:pointer;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--ink-soft);
+  }
+  .btn.primary{
+    background:var(--shelf-green);
+    border-color:var(--shelf-green);
+    color:#EFE9D4;
+  }
+  .btn.primary:hover{background:var(--shelf-green-dark);}
+  .modal-close{
+    position:absolute; top:14px; right:16px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:18px;
+    background:none; border:none;
+    color:#B7AD8E; cursor:pointer;
+  }
+
   footer{
     text-align:center;
     padding:26px;
@@ -278,8 +408,8 @@
   <div class="plate-wrap">
     <div>
       <span class="plate">Personal Catalog · Est. 2026</span>
-      <h1 class="wordmark">Dynamic <em>Wise</em></h1>
-      <div class="tagline">notes, write-ups & things worth sharing</div>
+      <h1 class="wordmark">Wisdom <em>Wise</em></h1>
+      <div class="tagline">notes, write-ups & things worth passing on</div>
     </div>
     <div class="card-count"><strong id="countNum">0</strong>cards on file</div>
   </div>
@@ -301,7 +431,71 @@
   <div class="grid" id="grid"></div>
 </main>
 
-<footer>Card catalog interface — edit the NOTES array in the script to add your own entries.</footer>
+<footer>
+  Card catalog · <span id="authLink" style="text-decoration:underline; cursor:pointer;">Sign in</span>
+</footer>
+
+<div class="overlay" id="authOverlay">
+  <div class="modal">
+    <button class="modal-close" id="authClose">&times;</button>
+    <h2>Sign in</h2>
+    <div class="sub">paste your GitHub access token — it's stored only in this browser</div>
+    <div class="field">
+      <label for="fToken">Access token</label>
+      <input id="fToken" type="password" placeholder="github_pat_...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="authCancel">Cancel</button>
+      <button class="btn primary" id="authSave">Sign in</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <button class="modal-close" id="modalClose">&times;</button>
+    <h2>New card</h2>
+    <div class="sub">it'll be filed into the catalog on save</div>
+
+    <div class="field">
+      <label for="fTitle">Title</label>
+      <input id="fTitle" type="text" placeholder="What's this note called?">
+    </div>
+
+    <div class="field">
+      <label for="fCat">Drawer</label>
+      <select id="fCat">
+        <option value="notes">Notes</option>
+        <option value="knowledge">Knowledge Transfer</option>
+        <option value="writing">Writing</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="fTag">Tag</label>
+      <input id="fTag" type="text" placeholder="e.g. devops, essay, template">
+    </div>
+
+    <div class="field">
+      <label for="fBody">Contents</label>
+      <textarea id="fBody" placeholder="Type the note itself here…"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" id="cancelBtn">Cancel</button>
+      <button class="btn primary" id="saveBtn">Save card</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="viewOverlay">
+  <div class="modal" style="max-width:560px;">
+    <button class="modal-close" id="viewClose">&times;</button>
+    <div class="sub" id="viewMeta">&nbsp;</div>
+    <h2 id="viewTitle" style="margin-bottom:14px;"></h2>
+    <div id="viewBody" style="font-size:14.5px; line-height:1.7; color:var(--ink-soft); white-space:pre-wrap; max-height:50vh; overflow-y:auto;"></div>
+  </div>
+</div>
 
 <script>
   // ---- Edit this array with your own content ----
@@ -362,14 +556,102 @@
   const tabs = document.querySelectorAll('.tab');
   let activeCat = 'all';
 
+  // ---- GitHub-as-database config ----
+  const GH_OWNER = 'dky-dynamic';
+  const GH_REPO  = 'dky-dynamic.github.io';
+  const GH_PATH  = 'notes.json';
+  const GH_BRANCH = 'main';
+  const TOKEN_KEY = 'field-notes-gh-token';
+
+  const CAT_PREFIX = { notes:'N', knowledge:'KT', writing:'W' };
+
+  let userNotes = [];   // loaded from notes.json in the repo
+  let fileSha = null;   // needed to update the file
+  let cloudLoaded = false;
+
+  function b64EncodeUnicode(str){
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+  function b64DecodeUnicode(str){
+    return decodeURIComponent(escape(atob(str)));
+  }
+
+  function getToken(){ return localStorage.getItem(TOKEN_KEY) || ''; }
+  function isSignedIn(){ return !!getToken(); }
+
+  async function fetchCloudNotes(){
+    const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}?ref=${GH_BRANCH}`;
+    try{
+      const res = await fetch(url, { headers: { 'Accept':'application/vnd.github+json' } });
+      if(res.status === 404){ userNotes = []; fileSha = null; }
+      else if(res.ok){
+        const data = await res.json();
+        fileSha = data.sha;
+        const decoded = b64DecodeUnicode(data.content.replace(/\n/g,''));
+        userNotes = JSON.parse(decoded || '[]');
+      } else {
+        userNotes = [];
+      }
+    }catch(e){
+      userNotes = [];
+    }
+    cloudLoaded = true;
+    render();
+  }
+
+  async function saveCloudNotes(message){
+    const token = getToken();
+    if(!token){ alert('Please sign in first.'); return false; }
+    const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`;
+    const body = {
+      message: message || 'update notes.json',
+      content: b64EncodeUnicode(JSON.stringify(userNotes, null, 2)),
+      branch: GH_BRANCH
+    };
+    if(fileSha) body.sha = fileSha;
+    try{
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Accept':'application/vnd.github+json',
+          'Authorization': `token ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if(!res.ok){
+        const err = await res.json().catch(()=>({}));
+        alert('Save failed: ' + (err.message || res.status));
+        return false;
+      }
+      const data = await res.json();
+      fileSha = data.content.sha;
+      return true;
+    }catch(e){
+      alert('Save failed — check your connection.');
+      return false;
+    }
+  }
+
   function fmtDate(d){
     const dt = new Date(d + 'T00:00:00');
     return dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
   }
 
+  function nextCallNo(cat){
+    const prefix = CAT_PREFIX[cat] || 'N';
+    const countInCat = [...NOTES, ...userNotes].filter(n=>n.cat===cat).length + 1;
+    return `${prefix} / ${String(countInCat).padStart(3,'0')}`;
+  }
+
+  function allNotes(){
+    return [...userNotes, ...NOTES];
+  }
+
   function render(){
     const q = search.value.trim().toLowerCase();
-    const filtered = NOTES.filter(n=>{
+    const source = allNotes();
+    const filtered = source.filter(n=>{
       const matchesCat = activeCat === 'all' || n.cat === activeCat;
       const hay = (n.title + ' ' + n.tag + ' ' + n.excerpt).toLowerCase();
       const matchesQ = !q || hay.includes(q);
@@ -377,17 +659,38 @@
     });
 
     grid.innerHTML = '';
-    countNum.textContent = filtered.length;
+    countNum.textContent = source.length;
+
+    if(isSignedIn()){
+      const addTile = document.createElement('div');
+      addTile.className = 'add-tile';
+      addTile.innerHTML = `<span class="plus">+</span><span>New card</span>`;
+      addTile.addEventListener('click', openAddModal);
+      grid.appendChild(addTile);
+    }
+
+    if(!cloudLoaded){
+      const loading = document.createElement('div');
+      loading.className = 'empty';
+      loading.textContent = 'Loading catalog…';
+      grid.appendChild(loading);
+      return;
+    }
 
     if(filtered.length === 0){
-      grid.innerHTML = '<div class="empty">No cards match that search.</div>';
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'No cards match that search.';
+      grid.appendChild(empty);
       return;
     }
 
     filtered.forEach(n=>{
       const el = document.createElement('div');
       el.className = 'note';
+      const canDelete = n.userAdded && isSignedIn();
       el.innerHTML = `
+        ${canDelete ? '<button class="del" title="Delete card">&times;</button>' : ''}
         <div class="note-top">
           <span class="stamp">${n.tag}</span>
           <span class="date">${fmtDate(n.date)}</span>
@@ -399,6 +702,20 @@
           <span>${n.cat}</span>
         </div>
       `;
+      el.addEventListener('click', (e)=>{
+        if(e.target.closest('.del')) return;
+        openViewModal(n);
+      });
+      if(canDelete){
+        el.querySelector('.del').addEventListener('click', async (e)=>{
+          e.stopPropagation();
+          const prev = userNotes;
+          userNotes = userNotes.filter(u=>u.id !== n.id);
+          render();
+          const ok = await saveCloudNotes(`delete card: ${n.title}`);
+          if(!ok){ userNotes = prev; render(); }
+        });
+      }
       grid.appendChild(el);
     });
   }
@@ -414,7 +731,102 @@
 
   search.addEventListener('input', render);
 
-  render();
+  // ---- Add-card modal ----
+  const overlay = document.getElementById('overlay');
+  const fTitle = document.getElementById('fTitle');
+  const fCat = document.getElementById('fCat');
+  const fTag = document.getElementById('fTag');
+  const fBody = document.getElementById('fBody');
+
+  function openAddModal(){
+    fTitle.value = ''; fTag.value = ''; fBody.value = ''; fCat.value = 'notes';
+    overlay.classList.add('open');
+    setTimeout(()=>fTitle.focus(), 50);
+  }
+  function closeAddModal(){ overlay.classList.remove('open'); }
+
+  document.getElementById('modalClose').addEventListener('click', closeAddModal);
+  document.getElementById('cancelBtn').addEventListener('click', closeAddModal);
+  overlay.addEventListener('click', (e)=>{ if(e.target === overlay) closeAddModal(); });
+
+  document.getElementById('saveBtn').addEventListener('click', async ()=>{
+    const title = fTitle.value.trim();
+    const body = fBody.value.trim();
+    if(!title || !body) return;
+
+    const cat = fCat.value;
+    const tag = fTag.value.trim() || cat;
+    const today = new Date().toISOString().slice(0,10);
+    const note = {
+      id: 'u-' + Date.now(),
+      title, cat, tag,
+      date: today,
+      callno: nextCallNo(cat),
+      excerpt: body.length > 130 ? body.slice(0,130).trim() + '…' : body,
+      body,
+      userAdded: true
+    };
+    const saveBtn = document.getElementById('saveBtn');
+    saveBtn.textContent = 'Saving…'; saveBtn.disabled = true;
+
+    userNotes.unshift(note);
+    const ok = await saveCloudNotes(`add card: ${title}`);
+    saveBtn.textContent = 'Save card'; saveBtn.disabled = false;
+
+    if(ok){ closeAddModal(); render(); }
+    else{ userNotes.shift(); }
+  });
+
+  // ---- View modal ----
+  const viewOverlay = document.getElementById('viewOverlay');
+  const viewTitle = document.getElementById('viewTitle');
+  const viewMeta = document.getElementById('viewMeta');
+  const viewBody = document.getElementById('viewBody');
+
+  function openViewModal(n){
+    viewTitle.textContent = n.title;
+    viewMeta.textContent = `${n.callno}  ·  ${n.cat}  ·  ${n.tag}  ·  ${fmtDate(n.date)}`;
+    viewBody.textContent = n.body || n.excerpt;
+    viewOverlay.classList.add('open');
+  }
+  document.getElementById('viewClose').addEventListener('click', ()=>viewOverlay.classList.remove('open'));
+  viewOverlay.addEventListener('click', (e)=>{ if(e.target === viewOverlay) viewOverlay.classList.remove('open'); });
+
+  // ---- Sign in ----
+  const authOverlay = document.getElementById('authOverlay');
+  const authLink = document.getElementById('authLink');
+  const fToken = document.getElementById('fToken');
+
+  function refreshAuthLink(){
+    authLink.textContent = isSignedIn() ? 'Sign out' : 'Sign in';
+  }
+
+  authLink.addEventListener('click', ()=>{
+    if(isSignedIn()){
+      localStorage.removeItem(TOKEN_KEY);
+      refreshAuthLink();
+      render();
+    } else {
+      fToken.value = '';
+      authOverlay.classList.add('open');
+      setTimeout(()=>fToken.focus(), 50);
+    }
+  });
+  document.getElementById('authClose').addEventListener('click', ()=>authOverlay.classList.remove('open'));
+  document.getElementById('authCancel').addEventListener('click', ()=>authOverlay.classList.remove('open'));
+  authOverlay.addEventListener('click', (e)=>{ if(e.target === authOverlay) authOverlay.classList.remove('open'); });
+
+  document.getElementById('authSave').addEventListener('click', ()=>{
+    const t = fToken.value.trim();
+    if(!t) return;
+    localStorage.setItem(TOKEN_KEY, t);
+    authOverlay.classList.remove('open');
+    refreshAuthLink();
+    render();
+  });
+
+  refreshAuthLink();
+  fetchCloudNotes();
 </script>
 
 </body>
