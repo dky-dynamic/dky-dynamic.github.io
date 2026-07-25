@@ -2,7 +2,7 @@
   "cards": [
     {
       "id": "u-1785012249453",
-      "title": "History",
+      "title": "History and Current Affair",
       "cat": "quiz",
       "tag": "UPSC/BPSC",
       "date": "2026-07-25",
@@ -51,7 +51,7 @@
             "ISIL",
             "NSIL"
           ],
-          "correctIndex": 0,
+          "correctIndex": 3,
           "solution": "NSIL- New Space India Limited"
         },
         {
