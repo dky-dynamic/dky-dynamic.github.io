@@ -420,6 +420,9 @@
   <button class="tab" data-cat="notes">Notes</button>
   <button class="tab" data-cat="knowledge">Knowledge Transfer</button>
   <button class="tab" data-cat="writing">Writing</button>
+  <button class="tab" data-cat="quiz">Quiz / Test Series</button>
+  <button class="tab" data-cat="wisdom">Wisdom Words</button>
+  <button class="tab" data-cat="personal" id="personalTab" style="display:none;">Personal</button>
 </nav>
 
 <main>
@@ -458,7 +461,7 @@
     <div class="sub">it'll be filed into the catalog on save</div>
 
     <div class="field">
-      <label for="fTitle">Title</label>
+      <label for="fTitle" id="fTitleLabel">Title</label>
       <input id="fTitle" type="text" placeholder="What's this note called?">
     </div>
 
@@ -468,6 +471,9 @@
         <option value="notes">Notes</option>
         <option value="knowledge">Knowledge Transfer</option>
         <option value="writing">Writing</option>
+        <option value="quiz">Quiz / Test Series</option>
+        <option value="wisdom">Wisdom Words</option>
+        <option value="personal">Personal (only you)</option>
       </select>
     </div>
 
@@ -477,8 +483,23 @@
     </div>
 
     <div class="field">
-      <label for="fBody">Contents</label>
-      <textarea id="fBody" placeholder="Type the note itself here…"></textarea>
+      <label>Color</label>
+      <div id="swatches" style="display:flex; gap:8px;"></div>
+      <input type="hidden" id="fColor" value="">
+    </div>
+
+    <div class="field">
+      <label for="fBody" id="fBodyLabel">Contents</label>
+      <div style="display:flex; gap:6px; margin-bottom:6px;">
+        <button type="button" class="btn" id="boldBtn" style="padding:4px 10px; font-weight:700;">B</button>
+        <button type="button" class="btn" id="italicBtn" style="padding:4px 10px; font-style:italic;">i</button>
+      </div>
+      <textarea id="fBody" placeholder="Type the note itself here… (select text and click B / i to format)"></textarea>
+    </div>
+
+    <div class="field">
+      <label for="fAttach">Attach files (image, PDF, Word doc)</label>
+      <input id="fAttach" type="file" accept="image/*,application/pdf,.doc,.docx" multiple>
     </div>
 
     <div class="modal-actions">
@@ -494,6 +515,11 @@
     <div class="sub" id="viewMeta">&nbsp;</div>
     <h2 id="viewTitle" style="margin-bottom:14px;"></h2>
     <div id="viewBody" style="font-size:14.5px; line-height:1.7; color:var(--ink-soft); white-space:pre-wrap; max-height:50vh; overflow-y:auto;"></div>
+    <div id="viewQuiz" style="display:none; margin-top:10px;">
+      <button class="btn primary" id="revealBtn">Reveal answer</button>
+      <div id="viewAnswer" style="display:none; margin-top:10px; font-size:14.5px; line-height:1.7; color:var(--ink-soft);"></div>
+    </div>
+    <div id="viewAttachments" style="margin-top:16px; display:flex; flex-direction:column; gap:10px;"></div>
   </div>
 </div>
 
@@ -501,6 +527,7 @@
   // ---- Edit this array with your own content ----
   const NOTES = [
     {
+      id: "d1",
       title: "Setting up a new laptop, without the pain",
       cat: "knowledge",
       tag: "onboarding",
@@ -509,6 +536,7 @@
       excerpt: "A checklist I wish I'd had on day one — accounts, dotfiles, the two settings everyone forgets to change."
     },
     {
+      id: "d2",
       title: "Why we chose Postgres over Mongo (in the end)",
       cat: "knowledge",
       tag: "architecture",
@@ -517,6 +545,7 @@
       excerpt: "Not a takedown of document stores — just the specific constraints that tipped it for this project."
     },
     {
+      id: "d3",
       title: "Reading notes: on writing clearly",
       cat: "notes",
       tag: "reading",
@@ -525,6 +554,7 @@
       excerpt: "Three ideas from this month's reading that actually changed how I draft things."
     },
     {
+      id: "d4",
       title: "Debugging a flaky CI pipeline",
       cat: "knowledge",
       tag: "devops",
@@ -533,6 +563,7 @@
       excerpt: "It wasn't the tests. It was never the tests. A short post-mortem for future me."
     },
     {
+      id: "d5",
       title: "A short essay on slow mornings",
       cat: "writing",
       tag: "essay",
@@ -541,6 +572,7 @@
       excerpt: "On the fifteen minutes before the day officially starts, and why I stopped skipping them."
     },
     {
+      id: "d6",
       title: "Meeting notes → decisions template",
       cat: "notes",
       tag: "template",
@@ -563,10 +595,12 @@
   const GH_BRANCH = 'main';
   const TOKEN_KEY = 'field-notes-gh-token';
 
-  const CAT_PREFIX = { notes:'N', knowledge:'KT', writing:'W' };
+  const CAT_PREFIX = { notes:'N', knowledge:'KT', writing:'W', quiz:'Q', wisdom:'WW', personal:'P' };
+  const SWATCHES = ['#B4502F', '#2F4A3C', '#8A6D3B', '#4B5FA8', '#7A4B8A', '#5B5548'];
 
-  let userNotes = [];   // loaded from notes.json in the repo
-  let fileSha = null;   // needed to update the file
+  let userNotes = [];       // loaded from notes.json in the repo
+  let hiddenDefaults = [];  // ids of default sample cards the owner has deleted
+  let fileSha = null;       // needed to update the file
   let cloudLoaded = false;
 
   function b64EncodeUnicode(str){
@@ -583,17 +617,24 @@
     const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}?ref=${GH_BRANCH}`;
     try{
       const res = await fetch(url, { headers: { 'Accept':'application/vnd.github+json' } });
-      if(res.status === 404){ userNotes = []; fileSha = null; }
+      if(res.status === 404){ userNotes = []; hiddenDefaults = []; fileSha = null; }
       else if(res.ok){
         const data = await res.json();
         fileSha = data.sha;
         const decoded = b64DecodeUnicode(data.content.replace(/\n/g,''));
-        userNotes = JSON.parse(decoded || '[]');
+        const parsed = JSON.parse(decoded || '[]');
+        if(Array.isArray(parsed)){ // old format: plain array of cards
+          userNotes = parsed;
+          hiddenDefaults = [];
+        } else {
+          userNotes = parsed.cards || [];
+          hiddenDefaults = parsed.hiddenDefaults || [];
+        }
       } else {
-        userNotes = [];
+        userNotes = []; hiddenDefaults = [];
       }
     }catch(e){
-      userNotes = [];
+      userNotes = []; hiddenDefaults = [];
     }
     cloudLoaded = true;
     render();
@@ -603,9 +644,10 @@
     const token = getToken();
     if(!token){ alert('Please sign in first.'); return false; }
     const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`;
+    const payload = { cards: userNotes, hiddenDefaults: hiddenDefaults };
     const body = {
       message: message || 'update notes.json',
-      content: b64EncodeUnicode(JSON.stringify(userNotes, null, 2)),
+      content: b64EncodeUnicode(JSON.stringify(payload, null, 2)),
       branch: GH_BRANCH
     };
     if(fileSha) body.sha = fileSha;
@@ -633,6 +675,29 @@
     }
   }
 
+  async function uploadAttachment(file){
+    const token = getToken();
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `uploads/${Date.now()}-${safeName}`;
+    const base64 = await new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onload = ()=> resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${path}`, {
+      method: 'PUT',
+      headers: {
+        'Accept':'application/vnd.github+json',
+        'Authorization': `token ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ message: `attach ${safeName}`, content: base64, branch: GH_BRANCH })
+    });
+    if(!res.ok) throw new Error('attachment upload failed: ' + file.name);
+    return { name: file.name, path, type: file.type };
+  }
+
   function fmtDate(d){
     const dt = new Date(d + 'T00:00:00');
     return dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
@@ -645,7 +710,20 @@
   }
 
   function allNotes(){
-    return [...userNotes, ...NOTES];
+    const visibleDefaults = NOTES.filter(n => !hiddenDefaults.includes(n.id));
+    const combined = [...userNotes, ...visibleDefaults];
+    return isSignedIn() ? combined : combined.filter(n => n.cat !== 'personal');
+  }
+
+  function stripMd(text){
+    return (text || '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1');
+  }
+
+  function renderRichText(text){
+    const esc = (text || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return esc
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>');
   }
 
   function render(){
@@ -688,18 +766,21 @@
     filtered.forEach(n=>{
       const el = document.createElement('div');
       el.className = 'note';
-      const canDelete = n.userAdded && isSignedIn();
+      const accent = n.color || null;
+      if(accent){ el.style.borderLeft = `4px solid ${accent}`; }
+      const canDelete = isSignedIn();
+      const attachCount = (n.attachments && n.attachments.length) ? n.attachments.length : 0;
       el.innerHTML = `
         ${canDelete ? '<button class="del" title="Delete card">&times;</button>' : ''}
         <div class="note-top">
-          <span class="stamp">${n.tag}</span>
+          <span class="stamp" ${accent ? `style="color:${accent};border-color:${accent};"` : ''}>${n.tag}</span>
           <span class="date">${fmtDate(n.date)}</span>
         </div>
         <h3>${n.title}</h3>
-        <p>${n.excerpt}</p>
+        <p>${stripMd(n.excerpt)}</p>
         <div class="note-foot">
-          <span class="callno">${n.callno}</span>
-          <span>${n.cat}</span>
+          <span class="callno" ${accent ? `style="color:${accent};"` : ''}>${n.callno}</span>
+          <span>${n.cat}${attachCount ? ' · 📎' + attachCount : ''}</span>
         </div>
       `;
       el.addEventListener('click', (e)=>{
@@ -709,11 +790,16 @@
       if(canDelete){
         el.querySelector('.del').addEventListener('click', async (e)=>{
           e.stopPropagation();
-          const prev = userNotes;
-          userNotes = userNotes.filter(u=>u.id !== n.id);
+          const prevUser = userNotes;
+          const prevHidden = hiddenDefaults;
+          if(n.userAdded){
+            userNotes = userNotes.filter(u=>u.id !== n.id);
+          } else {
+            hiddenDefaults = [...hiddenDefaults, n.id];
+          }
           render();
           const ok = await saveCloudNotes(`delete card: ${n.title}`);
-          if(!ok){ userNotes = prev; render(); }
+          if(!ok){ userNotes = prevUser; hiddenDefaults = prevHidden; render(); }
         });
       }
       grid.appendChild(el);
@@ -734,12 +820,58 @@
   // ---- Add-card modal ----
   const overlay = document.getElementById('overlay');
   const fTitle = document.getElementById('fTitle');
+  const fTitleLabel = document.getElementById('fTitleLabel');
   const fCat = document.getElementById('fCat');
   const fTag = document.getElementById('fTag');
   const fBody = document.getElementById('fBody');
+  const fBodyLabel = document.getElementById('fBodyLabel');
+  const fColor = document.getElementById('fColor');
+  const fAttach = document.getElementById('fAttach');
+  const swatchesEl = document.getElementById('swatches');
+
+  SWATCHES.forEach((hex, i)=>{
+    const sw = document.createElement('div');
+    sw.style.cssText = `width:24px;height:24px;border-radius:50%;background:${hex};cursor:pointer;border:2px solid ${i===0 ? '#2A2621' : 'transparent'};`;
+    sw.dataset.hex = hex;
+    sw.addEventListener('click', ()=>{
+      fColor.value = hex;
+      [...swatchesEl.children].forEach(c=>c.style.borderColor = 'transparent');
+      sw.style.borderColor = '#2A2621';
+    });
+    swatchesEl.appendChild(sw);
+  });
+
+  function updateLabelsForCat(){
+    if(fCat.value === 'quiz'){
+      fTitleLabel.textContent = 'Question';
+      fTitle.placeholder = "What's the question?";
+      fBodyLabel.textContent = 'Answer';
+      fBody.placeholder = 'Type the answer here…';
+    } else {
+      fTitleLabel.textContent = 'Title';
+      fTitle.placeholder = "What's this note called?";
+      fBodyLabel.textContent = 'Contents';
+      fBody.placeholder = 'Type the note itself here… (select text and click B / i to format)';
+    }
+  }
+  fCat.addEventListener('change', updateLabelsForCat);
+
+  function wrapSelection(marker){
+    const start = fBody.selectionStart, end = fBody.selectionEnd;
+    const val = fBody.value;
+    const selected = val.slice(start, end) || 'text';
+    fBody.value = val.slice(0, start) + marker + selected + marker + val.slice(end);
+    fBody.focus();
+  }
+  document.getElementById('boldBtn').addEventListener('click', ()=>wrapSelection('**'));
+  document.getElementById('italicBtn').addEventListener('click', ()=>wrapSelection('*'));
 
   function openAddModal(){
     fTitle.value = ''; fTag.value = ''; fBody.value = ''; fCat.value = 'notes';
+    fColor.value = SWATCHES[0];
+    fAttach.value = '';
+    [...swatchesEl.children].forEach((c,i)=> c.style.borderColor = i===0 ? '#2A2621' : 'transparent');
+    updateLabelsForCat();
     overlay.classList.add('open');
     setTimeout(()=>fTitle.focus(), 50);
   }
@@ -757,19 +889,36 @@
     const cat = fCat.value;
     const tag = fTag.value.trim() || cat;
     const today = new Date().toISOString().slice(0,10);
+    const isQuiz = cat === 'quiz';
+
+    const saveBtn = document.getElementById('saveBtn');
+    saveBtn.textContent = 'Saving…'; saveBtn.disabled = true;
+
+    let attachments = [];
+    try{
+      if(fAttach.files && fAttach.files.length){
+        saveBtn.textContent = 'Uploading files…';
+        attachments = await Promise.all([...fAttach.files].map(uploadAttachment));
+      }
+    }catch(e){
+      alert('One or more attachments failed to upload. Saving the card without them.');
+    }
+
     const note = {
       id: 'u-' + Date.now(),
       title, cat, tag,
       date: today,
       callno: nextCallNo(cat),
-      excerpt: body.length > 130 ? body.slice(0,130).trim() + '…' : body,
+      excerpt: isQuiz ? 'Tap to test yourself' : (stripMd(body).length > 130 ? stripMd(body).slice(0,130).trim() + '…' : stripMd(body)),
       body,
+      color: fColor.value || null,
+      attachments,
       userAdded: true
     };
-    const saveBtn = document.getElementById('saveBtn');
-    saveBtn.textContent = 'Saving…'; saveBtn.disabled = true;
+    if(isQuiz) note.answer = body;
 
     userNotes.unshift(note);
+    saveBtn.textContent = 'Saving…';
     const ok = await saveCloudNotes(`add card: ${title}`);
     saveBtn.textContent = 'Save card'; saveBtn.disabled = false;
 
@@ -782,13 +931,47 @@
   const viewTitle = document.getElementById('viewTitle');
   const viewMeta = document.getElementById('viewMeta');
   const viewBody = document.getElementById('viewBody');
+  const viewQuiz = document.getElementById('viewQuiz');
+  const viewAnswer = document.getElementById('viewAnswer');
+  const revealBtn = document.getElementById('revealBtn');
+  const viewAttachments = document.getElementById('viewAttachments');
 
   function openViewModal(n){
     viewTitle.textContent = n.title;
     viewMeta.textContent = `${n.callno}  ·  ${n.cat}  ·  ${n.tag}  ·  ${fmtDate(n.date)}`;
-    viewBody.textContent = n.body || n.excerpt;
+
+    if(n.cat === 'quiz'){
+      viewBody.style.display = 'none';
+      viewQuiz.style.display = 'block';
+      viewAnswer.style.display = 'none';
+      revealBtn.textContent = 'Reveal answer';
+      viewAnswer.innerHTML = renderRichText(n.answer || n.body || '');
+    } else {
+      viewBody.style.display = 'block';
+      viewQuiz.style.display = 'none';
+      viewBody.innerHTML = renderRichText(n.body || n.excerpt);
+    }
+
+    viewAttachments.innerHTML = '';
+    (n.attachments || []).forEach(att=>{
+      if(att.type && att.type.startsWith('image/')){
+        const img = document.createElement('img');
+        img.src = att.path;
+        img.style.cssText = 'max-width:100%;border-radius:4px;border:1px solid var(--line);';
+        viewAttachments.appendChild(img);
+      } else {
+        const link = document.createElement('a');
+        link.href = att.path;
+        link.target = '_blank';
+        link.textContent = '📎 ' + att.name;
+        link.style.cssText = 'font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:var(--rust);text-decoration:underline;';
+        viewAttachments.appendChild(link);
+      }
+    });
+
     viewOverlay.classList.add('open');
   }
+  revealBtn.addEventListener('click', ()=>{ viewAnswer.style.display = 'block'; });
   document.getElementById('viewClose').addEventListener('click', ()=>viewOverlay.classList.remove('open'));
   viewOverlay.addEventListener('click', (e)=>{ if(e.target === viewOverlay) viewOverlay.classList.remove('open'); });
 
@@ -799,6 +982,13 @@
 
   function refreshAuthLink(){
     authLink.textContent = isSignedIn() ? 'Sign out' : 'Sign in';
+    const personalTab = document.getElementById('personalTab');
+    personalTab.style.display = isSignedIn() ? '' : 'none';
+    if(!isSignedIn() && activeCat === 'personal'){
+      activeCat = 'all';
+      tabs.forEach(t=>t.classList.remove('active'));
+      document.querySelector('.tab[data-cat="all"]').classList.add('active');
+    }
   }
 
   authLink.addEventListener('click', ()=>{
