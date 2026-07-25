@@ -1,6 +1,25 @@
 {
   "cards": [
     {
+      "id": "u-1784986494413",
+      "title": "THE ODYSSEY",
+      "cat": "wisdom",
+      "tag": "films",
+      "date": "2026-07-25",
+      "callno": "WW / 001",
+      "excerpt": "What you most want is what you most can't have. And what you most can't have is what you already had and lost.",
+      "body": "What you most want is what you most can't have. And what you most can't have is what you already had and lost.",
+      "color": "#4B5FA8",
+      "attachments": [
+        {
+          "name": "Screenshot 2026-07-25 190431.png",
+          "path": "uploads/1784986491542-Screenshot_2026-07-25_190431.png",
+          "type": "image/png"
+        }
+      ],
+      "userAdded": true
+    },
+    {
       "id": "u-1784978207047",
       "title": "Current Affair",
       "cat": "knowledge",
