@@ -1,6 +1,76 @@
 {
   "cards": [
     {
+      "id": "u-1785012249453",
+      "title": "History",
+      "cat": "quiz",
+      "tag": "UPSC/BPSC",
+      "date": "2026-07-25",
+      "callno": "Q / 001",
+      "excerpt": "5 questions",
+      "body": "",
+      "questions": [
+        {
+          "q": "Which is the most populous Island in the world?",
+          "options": [
+            "Sumatra",
+            "java",
+            "New guinea",
+            "Brunei"
+          ],
+          "correctIndex": 0,
+          "solution": "Sumatra"
+        },
+        {
+          "q": "When did Jayaprakash Narayan was  given 'Bharata Ratna' ?",
+          "options": [
+            "1998",
+            "1994",
+            "1999",
+            "2000"
+          ],
+          "correctIndex": 2,
+          "solution": "1999"
+        },
+        {
+          "q": "By which year  first 5 IIT  were established?",
+          "options": [
+            "1955",
+            "1957",
+            "1954",
+            "1956"
+          ],
+          "correctIndex": 0,
+          "solution": "1955"
+        },
+        {
+          "q": "Among the following which is the commercial arm of ISRO?",
+          "options": [
+            "CSIL",
+            "ESIL",
+            "ISIL",
+            "NSIL"
+          ],
+          "correctIndex": 0,
+          "solution": "NSIL- New Space India Limited"
+        },
+        {
+          "q": "Which of the pass sits at an altitude of over 5500m on ancient silk road route b/w Leh and Yarkand",
+          "options": [
+            "Nathu la pass",
+            "Zojila pass",
+            "Karakoram pass",
+            "Khardung la pass"
+          ],
+          "correctIndex": 2,
+          "solution": "Karakoram pass"
+        }
+      ],
+      "color": "#2F4A3C",
+      "attachments": [],
+      "userAdded": true
+    },
+    {
       "id": "u-1784986494413",
       "title": "THE ODYSSEY",
       "cat": "wisdom",
@@ -34,6 +104,7 @@
   "hiddenDefaults": [
     "d2",
     "d4",
-    "d1"
+    "d1",
+    null
   ]
 }
