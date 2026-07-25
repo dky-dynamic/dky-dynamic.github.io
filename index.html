@@ -372,6 +372,31 @@
   }
   .quiz-option.correct .dot{background:#2F4A3C; border-color:#2F4A3C;}
   .quiz-option.wrong .dot{background:var(--rust); border-color:var(--rust);}
+  .quiz-option .mark{
+    margin-left:auto;
+    font-weight:700;
+    font-size:16px;
+  }
+  .quiz-option.correct .mark{color:#2F4A3C;}
+  .quiz-option.wrong .mark{color:var(--rust);}
+  .quiz-results{
+    text-align:center;
+    padding:20px 10px;
+  }
+  .quiz-results .score{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:40px;
+    color:var(--shelf-green);
+    margin-bottom:6px;
+  }
+  .quiz-results .score-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:#B7AD8E;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
   .quiz-solution{
     margin-top:16px;
     padding-top:14px;
@@ -616,15 +641,25 @@
     <h2 id="viewTitle" style="margin-bottom:14px;"></h2>
     <div id="viewBody" style="font-size:14.5px; line-height:1.7; color:var(--ink-soft); white-space:pre-wrap; max-height:50vh; overflow-y:auto;"></div>
     <div id="viewQuiz" style="display:none; margin-top:6px;">
-      <div class="quiz-progress" id="quizProgress"></div>
-      <div class="quiz-question" id="quizQuestionText"></div>
-      <div id="quizOptions"></div>
-      <div class="quiz-solution" id="quizSolution" style="display:none;">
-        <div class="sol-label">Solution</div>
-        <div id="quizSolutionText"></div>
+      <div id="quizTakingArea">
+        <div class="quiz-progress" id="quizProgress"></div>
+        <div class="quiz-question" id="quizQuestionText"></div>
+        <div id="quizOptions"></div>
+        <div class="quiz-solution" id="quizSolution" style="display:none;">
+          <div class="sol-label">Solution</div>
+          <div id="quizSolutionText"></div>
+        </div>
+        <div class="modal-actions" style="margin-top:16px;">
+          <button class="btn primary" id="quizNextBtn" style="display:none;">Next question</button>
+        </div>
       </div>
-      <div class="modal-actions" style="margin-top:16px;">
-        <button class="btn primary" id="quizNextBtn" style="display:none;">Next question</button>
+      <div id="quizResults" class="quiz-results" style="display:none;">
+        <div class="score-label">Quiz complete</div>
+        <div class="score" id="quizScoreText"></div>
+        <div class="modal-actions" style="justify-content:center; margin-top:10px;">
+          <button class="btn primary" id="quizRetakeBtn">Retake quiz</button>
+          <button class="btn" id="quizCloseBtn">Close</button>
+        </div>
       </div>
     </div>
     <div id="viewAttachments" style="margin-top:16px; display:flex; flex-direction:column; gap:10px;"></div>
@@ -1164,15 +1199,27 @@
   const viewMeta = document.getElementById('viewMeta');
   const viewBody = document.getElementById('viewBody');
   const viewQuiz = document.getElementById('viewQuiz');
+  const quizTakingArea = document.getElementById('quizTakingArea');
   const quizProgress = document.getElementById('quizProgress');
   const quizQuestionText = document.getElementById('quizQuestionText');
   const quizOptions = document.getElementById('quizOptions');
   const quizSolution = document.getElementById('quizSolution');
   const quizSolutionText = document.getElementById('quizSolutionText');
   const quizNextBtn = document.getElementById('quizNextBtn');
+  const quizResults = document.getElementById('quizResults');
+  const quizScoreText = document.getElementById('quizScoreText');
+  const quizRetakeBtn = document.getElementById('quizRetakeBtn');
+  const quizCloseBtn = document.getElementById('quizCloseBtn');
   const viewAttachments = document.getElementById('viewAttachments');
 
-  let quizState = null; // { questions, idx }
+  let quizState = null; // { questions, idx, correct }
+
+  function startQuiz(questions){
+    quizState = { questions, idx: 0, correct: 0 };
+    quizResults.style.display = 'none';
+    quizTakingArea.style.display = 'block';
+    showQuizQuestion();
+  }
 
   function showQuizQuestion(){
     const { questions, idx } = quizState;
@@ -1187,19 +1234,27 @@
       if(!optText) return;
       const row = document.createElement('div');
       row.className = 'quiz-option';
-      row.innerHTML = `<span class="dot"></span><span>${optText}</span>`;
+      row.innerHTML = `<span class="dot"></span><span>${optText}</span><span class="mark"></span>`;
       row.addEventListener('click', ()=>{
         if(row.dataset.answered) return;
         [...quizOptions.children].forEach(r=>r.dataset.answered = '1');
         [...quizOptions.children].forEach((r, ri)=>{
           r.classList.add('disabled');
-          if(ri === q.correctIndex) r.classList.add('correct');
+          if(ri === q.correctIndex){
+            r.classList.add('correct');
+            r.querySelector('.mark').textContent = '✓';
+          }
         });
-        if(oi !== q.correctIndex) row.classList.add('wrong');
+        if(oi !== q.correctIndex){
+          row.classList.add('wrong');
+          row.querySelector('.mark').textContent = '✗';
+        } else {
+          quizState.correct++;
+        }
         quizSolutionText.innerHTML = renderRichText(q.solution || 'No explanation added for this one.');
         quizSolution.style.display = 'block';
         quizNextBtn.style.display = 'inline-block';
-        quizNextBtn.textContent = (idx < questions.length - 1) ? 'Next question' : 'Finish';
+        quizNextBtn.textContent = (idx < questions.length - 1) ? 'Next question' : 'See results';
       });
       quizOptions.appendChild(row);
     });
@@ -1209,9 +1264,13 @@
       quizState.idx++;
       showQuizQuestion();
     } else {
-      viewOverlay.classList.remove('open');
+      quizTakingArea.style.display = 'none';
+      quizResults.style.display = 'block';
+      quizScoreText.textContent = `${quizState.correct} / ${quizState.questions.length}`;
     }
   });
+  quizRetakeBtn.addEventListener('click', ()=>{ startQuiz(quizState.questions); });
+  quizCloseBtn.addEventListener('click', ()=>{ viewOverlay.classList.remove('open'); });
 
   function openViewModal(n){
     viewTitle.textContent = n.title;
@@ -1220,8 +1279,7 @@
     if(n.cat === 'quiz' && n.questions && n.questions.length){
       viewBody.style.display = 'none';
       viewQuiz.style.display = 'block';
-      quizState = { questions: n.questions, idx: 0 };
-      showQuizQuestion();
+      startQuiz(n.questions);
     } else {
       viewBody.style.display = 'block';
       viewQuiz.style.display = 'none';
