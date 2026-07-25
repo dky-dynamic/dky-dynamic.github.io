@@ -297,6 +297,96 @@
     padding:2px 4px;
   }
   .note .del:hover{color:var(--rust);}
+  .note .edit{
+    position:absolute;
+    top:8px; right:32px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:#C9BE9A;
+    cursor:pointer;
+    background:none;
+    border:none;
+    padding:2px 4px;
+  }
+  .note .edit:hover{color:var(--shelf-green);}
+
+  /* ---------- Quiz builder (in add/edit modal) ---------- */
+  .qblock{
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:14px;
+    margin-bottom:12px;
+    background:var(--paper);
+  }
+  .qblock .qnum{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    color:var(--rust);
+    margin-bottom:8px;
+    font-weight:600;
+  }
+  .qblock .opt-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:6px;
+  }
+  .qblock .opt-row input[type="text"]{
+    flex:1;
+    font-size:13px;
+    padding:6px 8px;
+  }
+
+  /* ---------- Quiz-taking UI (view modal) ---------- */
+  .quiz-progress{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:#B7AD8E;
+    margin-bottom:10px;
+  }
+  .quiz-question{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:18px;
+    margin-bottom:16px;
+  }
+  .quiz-option{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:12px 14px;
+    margin-bottom:8px;
+    cursor:pointer;
+    font-size:14.5px;
+    transition:background .12s ease;
+  }
+  .quiz-option:hover{background:rgba(228,216,184,.25);}
+  .quiz-option.correct{border-color:#2F4A3C; background:rgba(47,74,60,.08);}
+  .quiz-option.wrong{border-color:var(--rust); background:rgba(180,80,47,.08);}
+  .quiz-option.disabled{cursor:default;}
+  .quiz-option .dot{
+    width:9px;height:9px;border-radius:50%;border:1.5px solid var(--line); flex-shrink:0;
+  }
+  .quiz-option.correct .dot{background:#2F4A3C; border-color:#2F4A3C;}
+  .quiz-option.wrong .dot{background:var(--rust); border-color:var(--rust);}
+  .quiz-solution{
+    margin-top:16px;
+    padding-top:14px;
+    border-top:1px dashed var(--line);
+    font-size:14px;
+    line-height:1.6;
+    color:var(--ink-soft);
+  }
+  .quiz-solution .sol-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    color:#B7AD8E;
+    margin-bottom:6px;
+  }
 
   /* ---------- Modal (new card form) ---------- */
   .overlay{
@@ -455,10 +545,10 @@
 </div>
 
 <div class="overlay" id="overlay">
-  <div class="modal">
+  <div class="modal" id="mainModal" style="max-width:460px; max-height:88vh; overflow-y:auto;">
     <button class="modal-close" id="modalClose">&times;</button>
-    <h2>New card</h2>
-    <div class="sub">it'll be filed into the catalog on save</div>
+    <h2 id="modalHeading">New card</h2>
+    <div class="sub" id="modalSub">it'll be filed into the catalog on save</div>
 
     <div class="field">
       <label for="fTitle" id="fTitleLabel">Title</label>
@@ -488,13 +578,23 @@
       <input type="hidden" id="fColor" value="">
     </div>
 
-    <div class="field">
-      <label for="fBody" id="fBodyLabel">Contents</label>
-      <div style="display:flex; gap:6px; margin-bottom:6px;">
-        <button type="button" class="btn" id="boldBtn" style="padding:4px 10px; font-weight:700;">B</button>
-        <button type="button" class="btn" id="italicBtn" style="padding:4px 10px; font-style:italic;">i</button>
+    <div id="standardFields">
+      <div class="field">
+        <label for="fBody" id="fBodyLabel">Contents</label>
+        <div style="display:flex; gap:6px; margin-bottom:6px;">
+          <button type="button" class="btn" id="boldBtn" style="padding:4px 10px; font-weight:700;">B</button>
+          <button type="button" class="btn" id="italicBtn" style="padding:4px 10px; font-style:italic;">i</button>
+        </div>
+        <textarea id="fBody" placeholder="Type the note itself here… (select text and click B / i to format)"></textarea>
       </div>
-      <textarea id="fBody" placeholder="Type the note itself here… (select text and click B / i to format)"></textarea>
+    </div>
+
+    <div id="quizFields" style="display:none;">
+      <div class="field">
+        <label for="fQCount">Number of questions</label>
+        <input id="fQCount" type="number" min="1" max="20" value="5">
+      </div>
+      <div id="quizBuilder"></div>
     </div>
 
     <div class="field">
@@ -510,14 +610,22 @@
 </div>
 
 <div class="overlay" id="viewOverlay">
-  <div class="modal" style="max-width:560px;">
+  <div class="modal" style="max-width:560px; max-height:88vh; overflow-y:auto;">
     <button class="modal-close" id="viewClose">&times;</button>
     <div class="sub" id="viewMeta">&nbsp;</div>
     <h2 id="viewTitle" style="margin-bottom:14px;"></h2>
     <div id="viewBody" style="font-size:14.5px; line-height:1.7; color:var(--ink-soft); white-space:pre-wrap; max-height:50vh; overflow-y:auto;"></div>
-    <div id="viewQuiz" style="display:none; margin-top:10px;">
-      <button class="btn primary" id="revealBtn">Reveal answer</button>
-      <div id="viewAnswer" style="display:none; margin-top:10px; font-size:14.5px; line-height:1.7; color:var(--ink-soft);"></div>
+    <div id="viewQuiz" style="display:none; margin-top:6px;">
+      <div class="quiz-progress" id="quizProgress"></div>
+      <div class="quiz-question" id="quizQuestionText"></div>
+      <div id="quizOptions"></div>
+      <div class="quiz-solution" id="quizSolution" style="display:none;">
+        <div class="sol-label">Solution</div>
+        <div id="quizSolutionText"></div>
+      </div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="btn primary" id="quizNextBtn" style="display:none;">Next question</button>
+      </div>
     </div>
     <div id="viewAttachments" style="margin-top:16px; display:flex; flex-direction:column; gap:10px;"></div>
   </div>
@@ -768,26 +876,32 @@
       el.className = 'note';
       const accent = n.color || null;
       if(accent){ el.style.borderLeft = `4px solid ${accent}`; }
-      const canDelete = isSignedIn();
+      const canManage = isSignedIn();
       const attachCount = (n.attachments && n.attachments.length) ? n.attachments.length : 0;
+      const qCount = (n.cat === 'quiz' && n.questions) ? n.questions.length : 0;
       el.innerHTML = `
-        ${canDelete ? '<button class="del" title="Delete card">&times;</button>' : ''}
+        ${canManage ? '<button class="edit" title="Edit card">&#9998;</button>' : ''}
+        ${canManage ? '<button class="del" title="Delete card">&times;</button>' : ''}
         <div class="note-top">
           <span class="stamp" ${accent ? `style="color:${accent};border-color:${accent};"` : ''}>${n.tag}</span>
           <span class="date">${fmtDate(n.date)}</span>
         </div>
         <h3>${n.title}</h3>
-        <p>${stripMd(n.excerpt)}</p>
+        <p>${qCount ? qCount + ' questions' : stripMd(n.excerpt)}</p>
         <div class="note-foot">
           <span class="callno" ${accent ? `style="color:${accent};"` : ''}>${n.callno}</span>
           <span>${n.cat}${attachCount ? ' · 📎' + attachCount : ''}</span>
         </div>
       `;
       el.addEventListener('click', (e)=>{
-        if(e.target.closest('.del')) return;
+        if(e.target.closest('.del') || e.target.closest('.edit')) return;
         openViewModal(n);
       });
-      if(canDelete){
+      if(canManage){
+        el.querySelector('.edit').addEventListener('click', (e)=>{
+          e.stopPropagation();
+          openAddModal(n);
+        });
         el.querySelector('.del').addEventListener('click', async (e)=>{
           e.stopPropagation();
           const prevUser = userNotes;
@@ -817,8 +931,11 @@
 
   search.addEventListener('input', render);
 
-  // ---- Add-card modal ----
+  // ---- Add/Edit-card modal ----
   const overlay = document.getElementById('overlay');
+  const mainModal = document.getElementById('mainModal');
+  const modalHeading = document.getElementById('modalHeading');
+  const modalSub = document.getElementById('modalSub');
   const fTitle = document.getElementById('fTitle');
   const fTitleLabel = document.getElementById('fTitleLabel');
   const fCat = document.getElementById('fCat');
@@ -828,10 +945,17 @@
   const fColor = document.getElementById('fColor');
   const fAttach = document.getElementById('fAttach');
   const swatchesEl = document.getElementById('swatches');
+  const standardFields = document.getElementById('standardFields');
+  const quizFields = document.getElementById('quizFields');
+  const fQCount = document.getElementById('fQCount');
+  const quizBuilder = document.getElementById('quizBuilder');
 
-  SWATCHES.forEach((hex, i)=>{
+  let editingNote = null;         // the note object being edited, or null when adding
+  let existingAttachments = [];   // attachments already on the note being edited
+
+  SWATCHES.forEach((hex)=>{
     const sw = document.createElement('div');
-    sw.style.cssText = `width:24px;height:24px;border-radius:50%;background:${hex};cursor:pointer;border:2px solid ${i===0 ? '#2A2621' : 'transparent'};`;
+    sw.style.cssText = `width:24px;height:24px;border-radius:50%;background:${hex};cursor:pointer;border:2px solid transparent;`;
     sw.dataset.hex = hex;
     sw.addEventListener('click', ()=>{
       fColor.value = hex;
@@ -840,21 +964,72 @@
     });
     swatchesEl.appendChild(sw);
   });
+  function selectSwatch(hex){
+    fColor.value = hex || SWATCHES[0];
+    [...swatchesEl.children].forEach(c=> c.style.borderColor = (c.dataset.hex === fColor.value) ? '#2A2621' : 'transparent');
+  }
 
   function updateLabelsForCat(){
-    if(fCat.value === 'quiz'){
-      fTitleLabel.textContent = 'Question';
-      fTitle.placeholder = "What's the question?";
-      fBodyLabel.textContent = 'Answer';
-      fBody.placeholder = 'Type the answer here…';
-    } else {
-      fTitleLabel.textContent = 'Title';
-      fTitle.placeholder = "What's this note called?";
-      fBodyLabel.textContent = 'Contents';
-      fBody.placeholder = 'Type the note itself here… (select text and click B / i to format)';
-    }
+    const isQuiz = fCat.value === 'quiz';
+    standardFields.style.display = isQuiz ? 'none' : 'block';
+    quizFields.style.display = isQuiz ? 'block' : 'none';
+    fTitleLabel.textContent = isQuiz ? 'Quiz title' : 'Title';
+    fTitle.placeholder = isQuiz ? 'e.g. History Trivia Round 1' : "What's this note called?";
   }
   fCat.addEventListener('change', updateLabelsForCat);
+
+  function quizBlockHTML(i, data){
+    data = data || {};
+    const opts = data.options || ['', '', '', ''];
+    const correct = (typeof data.correctIndex === 'number') ? data.correctIndex : 0;
+    return `
+      <div class="qblock" data-qindex="${i}">
+        <div class="qnum">Question ${i+1}</div>
+        <div class="field">
+          <label>Question text</label>
+          <textarea class="qtext" rows="2" placeholder="Type the question…">${data.q || ''}</textarea>
+        </div>
+        ${[0,1,2,3].map(oi => `
+          <div class="opt-row">
+            <input type="radio" name="correct-${i}" value="${oi}" ${correct===oi?'checked':''}>
+            <input type="text" class="qopt" data-oi="${oi}" placeholder="Option ${String.fromCharCode(65+oi)}" value="${(opts[oi]||'').replace(/"/g,'&quot;')}">
+          </div>
+        `).join('')}
+        <div class="field" style="margin-top:8px;">
+          <label>Solution / explanation</label>
+          <textarea class="qsol" rows="2" placeholder="Why is this the correct answer?">${data.solution || ''}</textarea>
+        </div>
+      </div>
+    `;
+  }
+
+  function buildQuizBlocks(count, existingQuestions){
+    existingQuestions = existingQuestions || [];
+    const preserved = readQuizBlocksFromDOM();
+    quizBuilder.innerHTML = '';
+    for(let i=0;i<count;i++){
+      const data = preserved[i] || existingQuestions[i] || {};
+      quizBuilder.insertAdjacentHTML('beforeend', quizBlockHTML(i, data));
+    }
+  }
+
+  function readQuizBlocksFromDOM(){
+    return [...quizBuilder.querySelectorAll('.qblock')].map(block=>{
+      const q = block.querySelector('.qtext').value.trim();
+      const options = [...block.querySelectorAll('.qopt')].map(o=>o.value.trim());
+      const checked = block.querySelector('input[type="radio"]:checked');
+      const correctIndex = checked ? parseInt(checked.value, 10) : 0;
+      const solution = block.querySelector('.qsol').value.trim();
+      return { q, options, correctIndex, solution };
+    });
+  }
+
+  fQCount.addEventListener('input', ()=>{
+    let n = parseInt(fQCount.value, 10);
+    if(isNaN(n) || n < 1) n = 1;
+    if(n > 20) n = 20;
+    buildQuizBlocks(n);
+  });
 
   function wrapSelection(marker){
     const start = fBody.selectionStart, end = fBody.selectionEnd;
@@ -866,16 +1041,46 @@
   document.getElementById('boldBtn').addEventListener('click', ()=>wrapSelection('**'));
   document.getElementById('italicBtn').addEventListener('click', ()=>wrapSelection('*'));
 
-  function openAddModal(){
-    fTitle.value = ''; fTag.value = ''; fBody.value = ''; fCat.value = 'notes';
-    fColor.value = SWATCHES[0];
+  function openAddModal(note){
+    editingNote = note || null;
+    existingAttachments = (note && note.attachments) ? [...note.attachments] : [];
     fAttach.value = '';
-    [...swatchesEl.children].forEach((c,i)=> c.style.borderColor = i===0 ? '#2A2621' : 'transparent');
+
+    if(note){
+      modalHeading.textContent = 'Edit card';
+      modalSub.textContent = 'changes save straight back to the catalog';
+      document.getElementById('saveBtn').textContent = 'Save changes';
+      fTitle.value = note.title || '';
+      fCat.value = note.cat || 'notes';
+      fTag.value = note.tag || '';
+      selectSwatch(note.color);
+      if(note.cat === 'quiz'){
+        const qs = note.questions || [];
+        fQCount.value = qs.length || 1;
+        buildQuizBlocksFresh(qs.length || 1, qs);
+      } else {
+        fBody.value = note.body || '';
+      }
+    } else {
+      modalHeading.textContent = 'New card';
+      modalSub.textContent = "it'll be filed into the catalog on save";
+      document.getElementById('saveBtn').textContent = 'Save card';
+      fTitle.value = ''; fTag.value = ''; fBody.value = ''; fCat.value = 'notes';
+      selectSwatch(SWATCHES[0]);
+      fQCount.value = 5;
+      buildQuizBlocksFresh(5, []);
+    }
     updateLabelsForCat();
     overlay.classList.add('open');
     setTimeout(()=>fTitle.focus(), 50);
   }
-  function closeAddModal(){ overlay.classList.remove('open'); }
+  function buildQuizBlocksFresh(count, existingQuestions){
+    quizBuilder.innerHTML = '';
+    for(let i=0;i<count;i++){
+      quizBuilder.insertAdjacentHTML('beforeend', quizBlockHTML(i, existingQuestions[i] || {}));
+    }
+  }
+  function closeAddModal(){ overlay.classList.remove('open'); editingNote = null; }
 
   document.getElementById('modalClose').addEventListener('click', closeAddModal);
   document.getElementById('cancelBtn').addEventListener('click', closeAddModal);
@@ -883,47 +1088,74 @@
 
   document.getElementById('saveBtn').addEventListener('click', async ()=>{
     const title = fTitle.value.trim();
-    const body = fBody.value.trim();
-    if(!title || !body) return;
+    if(!title) return;
 
     const cat = fCat.value;
     const tag = fTag.value.trim() || cat;
     const today = new Date().toISOString().slice(0,10);
     const isQuiz = cat === 'quiz';
 
+    let questions = null, body = '', excerpt = '';
+    if(isQuiz){
+      questions = readQuizBlocksFromDOM().filter(q => q.q && q.options.some(o=>o));
+      if(questions.length === 0){ alert('Add at least one question with some options.'); return; }
+      excerpt = `${questions.length} question${questions.length===1?'':'s'}`;
+    } else {
+      body = fBody.value.trim();
+      if(!body) return;
+      excerpt = stripMd(body).length > 130 ? stripMd(body).slice(0,130).trim() + '…' : stripMd(body);
+    }
+
     const saveBtn = document.getElementById('saveBtn');
     saveBtn.textContent = 'Saving…'; saveBtn.disabled = true;
 
-    let attachments = [];
+    let newUploads = [];
     try{
       if(fAttach.files && fAttach.files.length){
         saveBtn.textContent = 'Uploading files…';
-        attachments = await Promise.all([...fAttach.files].map(uploadAttachment));
+        newUploads = await Promise.all([...fAttach.files].map(uploadAttachment));
       }
     }catch(e){
-      alert('One or more attachments failed to upload. Saving the card without them.');
+      alert('One or more attachments failed to upload. Saving the card without the new ones.');
     }
+    const attachments = [...existingAttachments, ...newUploads];
+
+    const wasEditingDefault = editingNote && !editingNote.userAdded;
+    const keepId = (editingNote && editingNote.userAdded) ? editingNote.id : 'u-' + Date.now();
+    const keepDate = (editingNote && editingNote.userAdded) ? editingNote.date : today;
 
     const note = {
-      id: 'u-' + Date.now(),
+      id: keepId,
       title, cat, tag,
-      date: today,
-      callno: nextCallNo(cat),
-      excerpt: isQuiz ? 'Tap to test yourself' : (stripMd(body).length > 130 ? stripMd(body).slice(0,130).trim() + '…' : stripMd(body)),
-      body,
+      date: keepDate,
+      callno: (editingNote && editingNote.callno) || nextCallNo(cat),
+      excerpt,
+      body: isQuiz ? '' : body,
+      questions: isQuiz ? questions : undefined,
       color: fColor.value || null,
       attachments,
       userAdded: true
     };
-    if(isQuiz) note.answer = body;
 
-    userNotes.unshift(note);
     saveBtn.textContent = 'Saving…';
-    const ok = await saveCloudNotes(`add card: ${title}`);
-    saveBtn.textContent = 'Save card'; saveBtn.disabled = false;
+
+    const prevUser = userNotes;
+    const prevHidden = hiddenDefaults;
+
+    if(editingNote && editingNote.userAdded){
+      userNotes = userNotes.map(u => u.id === editingNote.id ? note : u);
+    } else if(wasEditingDefault){
+      hiddenDefaults = [...hiddenDefaults, editingNote.id];
+      userNotes = [note, ...userNotes];
+    } else {
+      userNotes = [note, ...userNotes];
+    }
+
+    const ok = await saveCloudNotes(editingNote ? `edit card: ${title}` : `add card: ${title}`);
+    saveBtn.textContent = editingNote ? 'Save changes' : 'Save card'; saveBtn.disabled = false;
 
     if(ok){ closeAddModal(); render(); }
-    else{ userNotes.shift(); }
+    else{ userNotes = prevUser; hiddenDefaults = prevHidden; }
   });
 
   // ---- View modal ----
@@ -932,20 +1164,64 @@
   const viewMeta = document.getElementById('viewMeta');
   const viewBody = document.getElementById('viewBody');
   const viewQuiz = document.getElementById('viewQuiz');
-  const viewAnswer = document.getElementById('viewAnswer');
-  const revealBtn = document.getElementById('revealBtn');
+  const quizProgress = document.getElementById('quizProgress');
+  const quizQuestionText = document.getElementById('quizQuestionText');
+  const quizOptions = document.getElementById('quizOptions');
+  const quizSolution = document.getElementById('quizSolution');
+  const quizSolutionText = document.getElementById('quizSolutionText');
+  const quizNextBtn = document.getElementById('quizNextBtn');
   const viewAttachments = document.getElementById('viewAttachments');
+
+  let quizState = null; // { questions, idx }
+
+  function showQuizQuestion(){
+    const { questions, idx } = quizState;
+    const q = questions[idx];
+    quizProgress.textContent = `Question ${idx+1} of ${questions.length}`;
+    quizQuestionText.textContent = q.q;
+    quizSolution.style.display = 'none';
+    quizNextBtn.style.display = 'none';
+
+    quizOptions.innerHTML = '';
+    q.options.forEach((optText, oi)=>{
+      if(!optText) return;
+      const row = document.createElement('div');
+      row.className = 'quiz-option';
+      row.innerHTML = `<span class="dot"></span><span>${optText}</span>`;
+      row.addEventListener('click', ()=>{
+        if(row.dataset.answered) return;
+        [...quizOptions.children].forEach(r=>r.dataset.answered = '1');
+        [...quizOptions.children].forEach((r, ri)=>{
+          r.classList.add('disabled');
+          if(ri === q.correctIndex) r.classList.add('correct');
+        });
+        if(oi !== q.correctIndex) row.classList.add('wrong');
+        quizSolutionText.innerHTML = renderRichText(q.solution || 'No explanation added for this one.');
+        quizSolution.style.display = 'block';
+        quizNextBtn.style.display = 'inline-block';
+        quizNextBtn.textContent = (idx < questions.length - 1) ? 'Next question' : 'Finish';
+      });
+      quizOptions.appendChild(row);
+    });
+  }
+  quizNextBtn.addEventListener('click', ()=>{
+    if(quizState.idx < quizState.questions.length - 1){
+      quizState.idx++;
+      showQuizQuestion();
+    } else {
+      viewOverlay.classList.remove('open');
+    }
+  });
 
   function openViewModal(n){
     viewTitle.textContent = n.title;
     viewMeta.textContent = `${n.callno}  ·  ${n.cat}  ·  ${n.tag}  ·  ${fmtDate(n.date)}`;
 
-    if(n.cat === 'quiz'){
+    if(n.cat === 'quiz' && n.questions && n.questions.length){
       viewBody.style.display = 'none';
       viewQuiz.style.display = 'block';
-      viewAnswer.style.display = 'none';
-      revealBtn.textContent = 'Reveal answer';
-      viewAnswer.innerHTML = renderRichText(n.answer || n.body || '');
+      quizState = { questions: n.questions, idx: 0 };
+      showQuizQuestion();
     } else {
       viewBody.style.display = 'block';
       viewQuiz.style.display = 'none';
@@ -971,7 +1247,6 @@
 
     viewOverlay.classList.add('open');
   }
-  revealBtn.addEventListener('click', ()=>{ viewAnswer.style.display = 'block'; });
   document.getElementById('viewClose').addEventListener('click', ()=>viewOverlay.classList.remove('open'));
   viewOverlay.addEventListener('click', (e)=>{ if(e.target === viewOverlay) viewOverlay.classList.remove('open'); });
 
