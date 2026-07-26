@@ -6,6 +6,7 @@
 <title>Wisdom Wise — a personal catalog</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/three@0.157.0/build/three.min.js"></script>
 <script src="https://unpkg.com/globe.gl"></script>
 <style>
   :root{
@@ -1853,12 +1854,37 @@
     myGlobe.pointsData([...visible, ...searchedPoints]);
   }
 
+  function buildGraticule(){
+    const paths = [];
+    for(let lat=-60; lat<=60; lat+=30){
+      const pts = [];
+      for(let lng=-180; lng<=180; lng+=5) pts.push([lat, lng]);
+      paths.push({ points: pts, type: lat === 0 ? 'equator' : 'parallel' });
+    }
+    for(let lng=-180; lng<180; lng+=30){
+      const pts = [];
+      for(let lat=-90; lat<=90; lat+=5) pts.push([lat, lng]);
+      paths.push({ points: pts, type: 'meridian' });
+    }
+    return paths;
+  }
+
+  const GRID_LABELS = [
+    ...WORLD_OCEANS,
+    { name: 'North Pole (90°N)', lat: 90, lng: 0 },
+    { name: 'South Pole (90°S)', lat: -90, lng: 0 },
+    { name: 'Equator (0°)', lat: 0, lng: 20 },
+  ];
+
   function initGlobe(){
     const initialPoints = ALL_GEO_POINTS.filter(p => tiersForAltitude(2.5).includes(p.tier));
     myGlobe = Globe()(document.getElementById('globeContainer'))
       .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
       .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
-      .backgroundColor('#0b1622')
+      .backgroundColor('#000814')
+      .showAtmosphere(true)
+      .atmosphereColor('#6fb1e8')
+      .atmosphereAltitude(0.22)
       .pointsData(initialPoints)
       .pointLat('lat')
       .pointLng('lng')
@@ -1867,8 +1893,35 @@
       .pointRadius(d => TIER_RADIUS[d.tier] || 0.25)
       .pointAltitude(0.01)
       .onPointClick(p => showPlace(p.name, p.lat, p.lng))
+      .pathsData(buildGraticule())
+      .pathPoints('points')
+      .pathPointLat(p => p[0])
+      .pathPointLng(p => p[1])
+      .pathColor(d => d.type === 'equator' ? 'rgba(255,210,80,0.85)' : 'rgba(255,255,255,0.22)')
+      .pathStroke(d => d.type === 'equator' ? 1.1 : 0.4)
+      .labelsData(GRID_LABELS)
+      .labelLat('lat')
+      .labelLng('lng')
+      .labelText('name')
+      .labelSize(d => (d.name.includes('Pole') || d.name.includes('Equator')) ? 0.9 : 1.1)
+      .labelColor(d => (d.name.includes('Pole') || d.name.includes('Equator')) ? 'rgba(255,220,120,0.95)' : 'rgba(210,235,255,0.9)')
+      .labelDotRadius(0)
+      .labelResolution(3)
+      .labelAltitude(0.011)
       .width(document.getElementById('globeContainer').clientWidth)
       .height(520);
+
+    // Real sunlight-style lighting instead of the flat default, for a more photographic look
+    const scene = myGlobe.scene();
+    scene.children.filter(c => c.isLight).forEach(l => scene.remove(l));
+    const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+    const sun = new THREE.DirectionalLight(0xffffff, 1.15);
+    sun.position.set(-1, 0.6, 1);
+    scene.add(ambient);
+    scene.add(sun);
+
+    // Earth's natural axial tilt (~23.4°) relative to its orbital plane
+    myGlobe.rotation.z = -23.4 * Math.PI / 180;
 
     myGlobe.controls().autoRotate = true;
     myGlobe.controls().autoRotateSpeed = 0.4;
