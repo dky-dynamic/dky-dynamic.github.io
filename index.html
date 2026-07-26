@@ -6,8 +6,14 @@
 <title>Wisdom Wise — a personal catalog</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/three@0.157.0/build/three.min.js"></script>
-<script src="https://unpkg.com/globe.gl"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
 <style>
   :root{
     --manila: #E4D8B8;
@@ -1588,10 +1594,19 @@
     globeView.style.display = 'block';
     catalogView.style.display = 'none';
     drawersNav.style.display = 'none';
-    if(!globeInitialized){ initGlobe(); globeInitialized = true; }
+    if(!globeInitialized){ window.initGlobe(); globeInitialized = true; }
   });
 
-  // ---- World Map / globe: geographic data ----
+</script>
+
+<script type="module">
+  // =====================================================================
+  // World Map — built directly on Three.js (no third-party globe wrapper)
+  // =====================================================================
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+  // ---- Geographic data ----
   const INDIA_STATES = [
     { name: 'Andhra Pradesh', lat: 15.9129, lng: 79.7400, tier: 'state' },
     { name: 'Arunachal Pradesh', lat: 28.2180, lng: 94.7278, tier: 'state' },
@@ -1631,8 +1646,6 @@
     { name: 'Lakshadweep', lat: 10.5667, lng: 72.6417, tier: 'state' },
   ];
 
-  const INDIA_MAJOR_STATES = ['Maharashtra','Uttar Pradesh','Rajasthan','Karnataka','Tamil Nadu','West Bengal','Gujarat','Madhya Pradesh','Delhi (NCT)','Kerala'];
-
   const INDIA_CITIES = [
     { name: 'Mumbai', lat: 19.0760, lng: 72.8777, tier: 'city' },
     { name: 'Delhi', lat: 28.7041, lng: 77.1025, tier: 'city' },
@@ -1671,7 +1684,6 @@
     { name: 'Raipur', lat: 21.2514, lng: 81.6296, tier: 'city' },
     { name: 'Panaji', lat: 15.4909, lng: 73.8278, tier: 'city' },
     { name: 'Thiruvananthapuram', lat: 8.5241, lng: 76.9366, tier: 'city' },
-    { name: 'Chandigarh City', lat: 30.7333, lng: 76.7794, tier: 'city' },
     { name: 'Surat', lat: 21.1702, lng: 72.8311, tier: 'city' },
     { name: 'Jodhpur', lat: 26.2389, lng: 73.0243, tier: 'city' },
   ];
@@ -1820,133 +1832,253 @@
     { name: 'Table Mountain', lat: -33.9628, lng: 18.4098, tier: 'mountain' },
   ];
 
-  const ALL_GEO_POINTS = [
+  const ALL_POINTS = [
     ...WORLD_CONTINENTS, ...WORLD_OCEANS, ...WORLD_COUNTRIES,
     ...INDIA_STATES, ...INDIA_CITIES, ...INDIA_MOUNTAINS, ...WORLD_MOUNTAINS
   ];
 
   const TIER_COLOR = {
-    ocean: '#3E7CB1', continent: '#E4572E', country: '#F3A712',
-    state: '#2F4A3C', city: '#B4502F', mountain: '#7A4B8A'
+    ocean: 0x3E7CB1, continent: 0xE4572E, country: 0xF3A712,
+    state: 0x4C7A63, city: 0xB4502F, mountain: 0x9B6BB3
   };
-  const TIER_RADIUS = {
-    ocean: 0.55, continent: 0.55, country: 0.4, state: 0.32, city: 0.24, mountain: 0.24
+  const TIER_SIZE = {
+    ocean: 0.028, continent: 0.028, country: 0.020, state: 0.016, city: 0.013, mountain: 0.013
   };
 
-  let myGlobe = null;
-  let searchedPoints = [];
-  let lastTierKey = '';
+  const EARTH_R = 1;
 
-  // Zoom (camera altitude) → which detail tiers are visible.
-  // Lower altitude = zoomed in = more detail shown.
-  function tiersForAltitude(alt){
-    if(alt > 2.0) return ['continent', 'ocean'];
-    if(alt > 1.0) return ['continent', 'ocean', 'country'];
-    if(alt > 0.45) return ['continent', 'ocean', 'country', 'state'];
-    return ['continent', 'ocean', 'country', 'state', 'city', 'mountain'];
+  function latLngToVector3(lat, lng, r){
+    const phi = (90 - lat) * Math.PI / 180;
+    const theta = (lng + 180) * Math.PI / 180;
+    return new THREE.Vector3(
+      -r * Math.sin(phi) * Math.cos(theta),
+       r * Math.cos(phi),
+       r * Math.sin(phi) * Math.sin(theta)
+    );
   }
 
-  function refreshVisiblePoints(){
-    if(!myGlobe) return;
-    const alt = myGlobe.pointOfView().altitude;
-    const tiers = tiersForAltitude(alt);
-    const key = tiers.join(',');
-    if(key === lastTierKey) return;
-    lastTierKey = key;
-    const visible = ALL_GEO_POINTS.filter(p => tiers.includes(p.tier));
-    myGlobe.pointsData([...visible, ...searchedPoints]);
+  function makeLabelSprite(text, color){
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const fontSize = 42;
+    ctx.font = `600 ${fontSize}px 'IBM Plex Mono', monospace`;
+    const w = ctx.measureText(text).width + 24;
+    canvas.width = w;
+    canvas.height = fontSize * 1.6;
+    ctx.font = `600 ${fontSize}px 'IBM Plex Mono', monospace`;
+    ctx.fillStyle = color;
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur = 8;
+    ctx.fillText(text, 12, canvas.height / 2);
+    const tex = new THREE.CanvasTexture(canvas);
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(mat);
+    const scale = 0.0026;
+    sprite.scale.set(canvas.width * scale, canvas.height * scale, 1);
+    return sprite;
   }
 
-  function buildGraticule(){
-    const paths = [];
+  // ---- Module state ----
+  let scene, camera, renderer, controls, earthGroup, markerGroup, raycaster, mouse;
+  let markerMeshes = [];
+  let autoSpin = true;
+  let hoverTooltip;
+
+  window.initGlobe = function initGlobe(){
+    const container = document.getElementById('globeContainer');
+    const width = container.clientWidth, height = 520;
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+    camera.position.set(0, 0, 3);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.innerHTML = '';
+    container.appendChild(renderer.domElement);
+
+    // Starfield background
+    scene.background = new THREE.Color(0x000814);
+    const starGeo = new THREE.BufferGeometry();
+    const starCount = 1200;
+    const starPos = new Float32Array(starCount * 3);
+    for(let i=0;i<starCount;i++){
+      const r = 20 + Math.random() * 30;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos((Math.random()*2)-1);
+      starPos[i*3] = r * Math.sin(phi) * Math.cos(theta);
+      starPos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+      starPos[i*3+2] = r * Math.cos(phi);
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.05 }));
+    scene.add(stars);
+
+    // Earth group (tilted 23.4°, holds the sphere + markers + graticule so everything rotates together)
+    earthGroup = new THREE.Group();
+    earthGroup.rotation.z = 23.4 * Math.PI / 180;
+    scene.add(earthGroup);
+
+    const loader = new THREE.TextureLoader();
+    const earthMap = loader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+    const bumpMap = loader.load('https://unpkg.com/three-globe/example/img/earth-topology.png');
+
+    const sphereGeo = new THREE.SphereGeometry(EARTH_R, 96, 96);
+    const sphereMat = new THREE.MeshPhongMaterial({
+      map: earthMap, bumpMap: bumpMap, bumpScale: 0.02,
+      specular: new THREE.Color(0x333333), shininess: 6
+    });
+    const earthMesh = new THREE.Mesh(sphereGeo, sphereMat);
+    earthGroup.add(earthMesh);
+
+    // Atmosphere glow
+    const atmoGeo = new THREE.SphereGeometry(EARTH_R * 1.035, 64, 64);
+    const atmoMat = new THREE.MeshBasicMaterial({ color: 0x6fb1e8, transparent: true, opacity: 0.14, side: THREE.BackSide });
+    earthGroup.add(new THREE.Mesh(atmoGeo, atmoMat));
+
+    // Lighting — directional "sun" + soft ambient fill
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+    sun.position.set(-3, 1.5, 3);
+    scene.add(sun);
+
+    // Graticule (lat/long grid + bold equator)
     for(let lat=-60; lat<=60; lat+=30){
       const pts = [];
-      for(let lng=-180; lng<=180; lng+=5) pts.push([lat, lng]);
-      paths.push({ points: pts, type: lat === 0 ? 'equator' : 'parallel' });
+      for(let lng=-180; lng<=180; lng+=4) pts.push(latLngToVector3(lat, lng, EARTH_R * 1.002));
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      const isEq = lat === 0;
+      const mat = new THREE.LineBasicMaterial({ color: isEq ? 0xffd250 : 0xffffff, transparent: true, opacity: isEq ? 0.85 : 0.22 });
+      earthGroup.add(new THREE.Line(geo, mat));
     }
     for(let lng=-180; lng<180; lng+=30){
       const pts = [];
-      for(let lat=-90; lat<=90; lat+=5) pts.push([lat, lng]);
-      paths.push({ points: pts, type: 'meridian' });
+      for(let lat=-90; lat<=90; lat+=4) pts.push(latLngToVector3(lat, lng, EARTH_R * 1.002));
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      const mat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22 });
+      earthGroup.add(new THREE.Line(geo, mat));
     }
-    return paths;
-  }
 
-  const GRID_LABELS = [
-    ...WORLD_OCEANS,
-    { name: 'North Pole (90°N)', lat: 90, lng: 0 },
-    { name: 'South Pole (90°S)', lat: -90, lng: 0 },
-    { name: 'Equator (0°)', lat: 0, lng: 20 },
-  ];
+    // Permanent labels: oceans + poles + equator
+    const permLabels = [
+      ...WORLD_OCEANS,
+      { name: 'North Pole (90°N)', lat: 90, lng: 0 },
+      { name: 'South Pole (90°S)', lat: -90, lng: 0 },
+      { name: 'Equator (0°)', lat: 0, lng: 20 },
+    ];
+    permLabels.forEach(p=>{
+      const isPoleOrEq = p.name.includes('Pole') || p.name.includes('Equator');
+      const sprite = makeLabelSprite(p.name, isPoleOrEq ? '#ffdc78' : '#d2ebff');
+      const pos = latLngToVector3(p.lat, p.lng, EARTH_R * 1.05);
+      sprite.position.copy(pos);
+      earthGroup.add(sprite);
+    });
 
-  function initGlobe(){
-    const initialPoints = ALL_GEO_POINTS.filter(p => tiersForAltitude(2.5).includes(p.tier));
-    myGlobe = Globe()(document.getElementById('globeContainer'))
-      .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
-      .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
-      .backgroundColor('#000814')
-      .showAtmosphere(true)
-      .atmosphereColor('#6fb1e8')
-      .atmosphereAltitude(0.22)
-      .pointsData(initialPoints)
-      .pointLat('lat')
-      .pointLng('lng')
-      .pointLabel(d => `${d.name} (${d.tier})`)
-      .pointColor(d => TIER_COLOR[d.tier] || '#B4502F')
-      .pointRadius(d => TIER_RADIUS[d.tier] || 0.25)
-      .pointAltitude(0.01)
-      .onPointClick(p => showPlace(p.name, p.lat, p.lng))
-      .pathsData(buildGraticule())
-      .pathPoints('points')
-      .pathPointLat(p => p[0])
-      .pathPointLng(p => p[1])
-      .pathColor(d => d.type === 'equator' ? 'rgba(255,210,80,0.85)' : 'rgba(255,255,255,0.22)')
-      .pathStroke(d => d.type === 'equator' ? 1.1 : 0.4)
-      .labelsData(GRID_LABELS)
-      .labelLat('lat')
-      .labelLng('lng')
-      .labelText('name')
-      .labelSize(d => (d.name.includes('Pole') || d.name.includes('Equator')) ? 0.9 : 1.1)
-      .labelColor(d => (d.name.includes('Pole') || d.name.includes('Equator')) ? 'rgba(255,220,120,0.95)' : 'rgba(210,235,255,0.9)')
-      .labelDotRadius(0)
-      .labelResolution(3)
-      .labelAltitude(0.011)
-      .width(document.getElementById('globeContainer').clientWidth)
-      .height(520);
+    // Markers for every point, with per-tier visibility toggling by zoom
+    markerGroup = new THREE.Group();
+    earthGroup.add(markerGroup);
+    markerMeshes = ALL_POINTS.map(p=>{
+      const geo = new THREE.SphereGeometry(TIER_SIZE[p.tier] || 0.015, 12, 12);
+      const mat = new THREE.MeshBasicMaterial({ color: TIER_COLOR[p.tier] || 0xB4502F });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(latLngToVector3(p.lat, p.lng, EARTH_R * 1.008));
+      mesh.userData = p;
+      markerGroup.add(mesh);
+      return mesh;
+    });
 
-    // Real sunlight-style lighting instead of the flat default, for a more photographic look
-    try{
-      const scene = myGlobe.scene();
-      scene.children.filter(c => c.isLight).forEach(l => scene.remove(l));
-      const ambient = new THREE.AmbientLight(0xffffff, 0.55);
-      const sun = new THREE.DirectionalLight(0xffffff, 1.15);
-      sun.position.set(-1, 0.6, 1);
-      scene.add(ambient);
-      scene.add(sun);
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.minDistance = 1.4;
+    controls.maxDistance = 6;
+    controls.enablePan = false;
+    controls.addEventListener('start', ()=>{ autoSpin = false; });
+    controls.addEventListener('end', ()=>{ setTimeout(()=>{ autoSpin = true; }, 2000); });
 
-      // Earth's natural axial tilt (~23.4°) relative to its orbital plane
-      const globeObj = scene.children.find(c => c.isObject3D && !c.isLight && !c.isCamera);
-      if(globeObj) globeObj.rotation.z = -23.4 * Math.PI / 180;
-    }catch(e){ /* cosmetic extras — never let these block the globe from rendering */ }
+    raycaster = new THREE.Raycaster();
+    mouse = new THREE.Vector2();
 
-    myGlobe.controls().autoRotate = true;
-    myGlobe.controls().autoRotateSpeed = 0.4;
+    hoverTooltip = document.createElement('div');
+    hoverTooltip.style.cssText = 'position:absolute; pointer-events:none; background:rgba(20,20,20,0.85); color:#fff; padding:4px 8px; border-radius:3px; font-family:"IBM Plex Mono",monospace; font-size:11px; display:none; z-index:10;';
+    container.style.position = 'relative';
+    container.appendChild(hoverTooltip);
 
-    setInterval(refreshVisiblePoints, 400);
+    renderer.domElement.addEventListener('pointermove', onPointerMove);
+    renderer.domElement.addEventListener('click', onPointerClick);
 
     window.addEventListener('resize', ()=>{
-      if(myGlobe) myGlobe.width(document.getElementById('globeContainer').clientWidth);
+      const w = container.clientWidth;
+      camera.aspect = w / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, height);
     });
+
+    let lastTierKey = '';
+    function updateVisibility(){
+      const dist = camera.position.length();
+      let tiers;
+      if(dist > 2.6) tiers = ['continent','ocean'];
+      else if(dist > 2.1) tiers = ['continent','ocean','country'];
+      else if(dist > 1.75) tiers = ['continent','ocean','country','state'];
+      else tiers = ['continent','ocean','country','state','city','mountain'];
+      const key = tiers.join(',');
+      if(key !== lastTierKey){
+        lastTierKey = key;
+        markerMeshes.forEach(m => { m.visible = tiers.includes(m.userData.tier); });
+      }
+    }
+
+    function animate(){
+      requestAnimationFrame(animate);
+      if(autoSpin) earthGroup.rotation.y += 0.0018;
+      updateVisibility();
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  };
+
+  function onPointerMove(e){
+    const container = document.getElementById('globeContainer');
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(markerMeshes.filter(m=>m.visible));
+    if(hits.length){
+      renderer.domElement.style.cursor = 'pointer';
+      hoverTooltip.style.display = 'block';
+      hoverTooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+      hoverTooltip.style.top = (e.clientY - rect.top + 12) + 'px';
+      hoverTooltip.textContent = `${hits[0].object.userData.name} (${hits[0].object.userData.tier})`;
+    } else {
+      renderer.domElement.style.cursor = 'grab';
+      hoverTooltip.style.display = 'none';
+    }
   }
 
-  const placeInfo = document.getElementById('placeInfo');
-  const placeName = document.getElementById('placeName');
-  const placeLat = document.getElementById('placeLat');
-  const placeLng = document.getElementById('placeLng');
-  const placeTime = document.getElementById('placeTime');
-  const placeTemp = document.getElementById('placeTemp');
+  function onPointerClick(e){
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(markerMeshes.filter(m=>m.visible));
+    if(hits.length){
+      const p = hits[0].object.userData;
+      window.showPlace(p.name, p.lat, p.lng);
+    }
+  }
 
-  async function showPlace(name, lat, lng){
+  // ---- Place info panel (shared with search) ----
+  window.showPlace = async function showPlace(name, lat, lng){
+    const placeInfo = document.getElementById('placeInfo');
+    const placeName = document.getElementById('placeName');
+    const placeLat = document.getElementById('placeLat');
+    const placeLng = document.getElementById('placeLng');
+    const placeTime = document.getElementById('placeTime');
+    const placeTemp = document.getElementById('placeTemp');
+
     placeInfo.style.display = 'block';
     placeName.textContent = name;
     placeLat.textContent = lat.toFixed(4) + '°';
@@ -1954,19 +2086,15 @@
     placeTime.textContent = 'loading…';
     placeTemp.textContent = 'loading…';
 
-    if(myGlobe){
-      myGlobe.controls().autoRotate = false;
-      myGlobe.pointOfView({ lat, lng, altitude: 0.6 }, 1200);
-    }
+    autoSpin = false;
+    setTimeout(()=>{ autoSpin = true; }, 4000);
 
     try{
       const tzRes = await fetch(`https://timeapi.io/api/Time/current/coordinate?latitude=${lat}&longitude=${lng}`);
       if(tzRes.ok){
         const tz = await tzRes.json();
         placeTime.textContent = `${tz.time} (${tz.timeZone})`;
-      } else {
-        placeTime.textContent = 'unavailable';
-      }
+      } else { placeTime.textContent = 'unavailable'; }
     }catch(e){ placeTime.textContent = 'unavailable'; }
 
     try{
@@ -1974,17 +2102,17 @@
       if(wRes.ok){
         const w = await wRes.json();
         placeTemp.textContent = `${w.current_weather.temperature}°C`;
-      } else {
-        placeTemp.textContent = 'unavailable';
-      }
+      } else { placeTemp.textContent = 'unavailable'; }
     }catch(e){ placeTemp.textContent = 'unavailable'; }
-  }
+  };
 
+  // ---- Search ----
   document.getElementById('placeSearchBtn').addEventListener('click', doPlaceSearch);
   document.getElementById('placeSearch').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') doPlaceSearch(); });
 
   async function doPlaceSearch(){
-    const q = document.getElementById('placeSearch').value.trim();
+    const input = document.getElementById('placeSearch');
+    const q = input.value.trim();
     if(!q) return;
     const btn = document.getElementById('placeSearchBtn');
     btn.textContent = 'Searching…'; btn.disabled = true;
@@ -1995,10 +2123,16 @@
         const r = results[0];
         const lat = parseFloat(r.lat), lng = parseFloat(r.lon);
         const label = r.display_name.split(',').slice(0,2).join(',');
-        searchedPoints = [...searchedPoints, { name: label, lat, lng, tier: 'city' }];
-        lastTierKey = ''; // force a refresh so the new point shows immediately
-        refreshVisiblePoints();
-        showPlace(label, lat, lng);
+        if(markerGroup){
+          const geo = new THREE.SphereGeometry(0.018, 12, 12);
+          const mat = new THREE.MeshBasicMaterial({ color: 0xffd250 });
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.position.copy(latLngToVector3(lat, lng, EARTH_R * 1.008));
+          mesh.userData = { name: label, lat, lng, tier: 'city' };
+          markerGroup.add(mesh);
+          markerMeshes.push(mesh);
+        }
+        window.showPlace(label, lat, lng);
       } else {
         alert('Could not find that place. Try a different search.');
       }
