@@ -1587,34 +1587,284 @@
     if(!globeInitialized){ initGlobe(); globeInitialized = true; }
   });
 
-  // ---- World Map / globe ----
-  const DEFAULT_PLACES = [
-    { name: 'New York, USA', lat: 40.7128, lng: -74.0060 },
-    { name: 'London, UK', lat: 51.5074, lng: -0.1278 },
-    { name: 'Paris, France', lat: 48.8566, lng: 2.3522 },
-    { name: 'Tokyo, Japan', lat: 35.6762, lng: 139.6503 },
-    { name: 'Sydney, Australia', lat: -33.8688, lng: 151.2093 },
-    { name: 'Mumbai, India', lat: 19.0760, lng: 72.8777 },
-    { name: 'Cairo, Egypt', lat: 30.0444, lng: 31.2357 },
-    { name: 'Rio de Janeiro, Brazil', lat: -22.9068, lng: -43.1729 },
-    { name: 'Cape Town, South Africa', lat: -33.9249, lng: 18.4241 },
-    { name: 'Moscow, Russia', lat: 55.7558, lng: 37.6173 },
+  // ---- World Map / globe: geographic data ----
+  const INDIA_STATES = [
+    { name: 'Andhra Pradesh', lat: 15.9129, lng: 79.7400, tier: 'state' },
+    { name: 'Arunachal Pradesh', lat: 28.2180, lng: 94.7278, tier: 'state' },
+    { name: 'Assam', lat: 26.2006, lng: 92.9376, tier: 'state' },
+    { name: 'Bihar', lat: 25.0961, lng: 85.3131, tier: 'state' },
+    { name: 'Chhattisgarh', lat: 21.2787, lng: 81.8661, tier: 'state' },
+    { name: 'Goa', lat: 15.2993, lng: 74.1240, tier: 'state' },
+    { name: 'Gujarat', lat: 22.2587, lng: 71.1924, tier: 'state' },
+    { name: 'Haryana', lat: 29.0588, lng: 76.0856, tier: 'state' },
+    { name: 'Himachal Pradesh', lat: 31.1048, lng: 77.1734, tier: 'state' },
+    { name: 'Jharkhand', lat: 23.6102, lng: 85.2799, tier: 'state' },
+    { name: 'Karnataka', lat: 15.3173, lng: 75.7139, tier: 'state' },
+    { name: 'Kerala', lat: 10.8505, lng: 76.2711, tier: 'state' },
+    { name: 'Madhya Pradesh', lat: 22.9734, lng: 78.6569, tier: 'state' },
+    { name: 'Maharashtra', lat: 19.7515, lng: 75.7139, tier: 'state' },
+    { name: 'Manipur', lat: 24.6637, lng: 93.9063, tier: 'state' },
+    { name: 'Meghalaya', lat: 25.4670, lng: 91.3662, tier: 'state' },
+    { name: 'Mizoram', lat: 23.1645, lng: 92.9376, tier: 'state' },
+    { name: 'Nagaland', lat: 26.1584, lng: 94.5624, tier: 'state' },
+    { name: 'Odisha', lat: 20.9517, lng: 85.0985, tier: 'state' },
+    { name: 'Punjab', lat: 31.1471, lng: 75.3412, tier: 'state' },
+    { name: 'Rajasthan', lat: 27.0238, lng: 74.2179, tier: 'state' },
+    { name: 'Sikkim', lat: 27.5330, lng: 88.5122, tier: 'state' },
+    { name: 'Tamil Nadu', lat: 11.1271, lng: 78.6569, tier: 'state' },
+    { name: 'Telangana', lat: 18.1124, lng: 79.0193, tier: 'state' },
+    { name: 'Tripura', lat: 23.9408, lng: 91.9882, tier: 'state' },
+    { name: 'Uttar Pradesh', lat: 26.8467, lng: 80.9462, tier: 'state' },
+    { name: 'Uttarakhand', lat: 30.0668, lng: 79.0193, tier: 'state' },
+    { name: 'West Bengal', lat: 22.9868, lng: 87.8550, tier: 'state' },
+    { name: 'Delhi (NCT)', lat: 28.7041, lng: 77.1025, tier: 'state' },
+    { name: 'Jammu and Kashmir', lat: 33.7782, lng: 76.5762, tier: 'state' },
+    { name: 'Ladakh', lat: 34.1526, lng: 77.5771, tier: 'state' },
+    { name: 'Puducherry', lat: 11.9416, lng: 79.8083, tier: 'state' },
+    { name: 'Chandigarh', lat: 30.7333, lng: 76.7794, tier: 'state' },
+    { name: 'Andaman and Nicobar Islands', lat: 11.7401, lng: 92.6586, tier: 'state' },
+    { name: 'Dadra, Nagar Haveli, Daman and Diu', lat: 20.1809, lng: 73.0169, tier: 'state' },
+    { name: 'Lakshadweep', lat: 10.5667, lng: 72.6417, tier: 'state' },
   ];
 
+  const INDIA_MAJOR_STATES = ['Maharashtra','Uttar Pradesh','Rajasthan','Karnataka','Tamil Nadu','West Bengal','Gujarat','Madhya Pradesh','Delhi (NCT)','Kerala'];
+
+  const INDIA_CITIES = [
+    { name: 'Mumbai', lat: 19.0760, lng: 72.8777, tier: 'city' },
+    { name: 'Delhi', lat: 28.7041, lng: 77.1025, tier: 'city' },
+    { name: 'Bengaluru', lat: 12.9716, lng: 77.5946, tier: 'city' },
+    { name: 'Hyderabad', lat: 17.3850, lng: 78.4867, tier: 'city' },
+    { name: 'Ahmedabad', lat: 23.0225, lng: 72.5714, tier: 'city' },
+    { name: 'Chennai', lat: 13.0827, lng: 80.2707, tier: 'city' },
+    { name: 'Kolkata', lat: 22.5726, lng: 88.3639, tier: 'city' },
+    { name: 'Pune', lat: 18.5204, lng: 73.8567, tier: 'city' },
+    { name: 'Jaipur', lat: 26.9124, lng: 75.7873, tier: 'city' },
+    { name: 'Lucknow', lat: 26.8467, lng: 80.9462, tier: 'city' },
+    { name: 'Kanpur', lat: 26.4499, lng: 80.3319, tier: 'city' },
+    { name: 'Nagpur', lat: 21.1458, lng: 79.0882, tier: 'city' },
+    { name: 'Indore', lat: 22.7196, lng: 75.8577, tier: 'city' },
+    { name: 'Bhopal', lat: 23.2599, lng: 77.4126, tier: 'city' },
+    { name: 'Visakhapatnam', lat: 17.6868, lng: 83.2185, tier: 'city' },
+    { name: 'Patna', lat: 25.5941, lng: 85.1376, tier: 'city' },
+    { name: 'Vadodara', lat: 22.3072, lng: 73.1812, tier: 'city' },
+    { name: 'Ludhiana', lat: 30.9010, lng: 75.8573, tier: 'city' },
+    { name: 'Agra', lat: 27.1767, lng: 78.0081, tier: 'city' },
+    { name: 'Nashik', lat: 19.9975, lng: 73.7898, tier: 'city' },
+    { name: 'Rajkot', lat: 22.3039, lng: 70.8022, tier: 'city' },
+    { name: 'Varanasi', lat: 25.3176, lng: 82.9739, tier: 'city' },
+    { name: 'Srinagar', lat: 34.0837, lng: 74.7973, tier: 'city' },
+    { name: 'Amritsar', lat: 31.6340, lng: 74.8723, tier: 'city' },
+    { name: 'Coimbatore', lat: 11.0168, lng: 76.9558, tier: 'city' },
+    { name: 'Guwahati', lat: 26.1445, lng: 91.7362, tier: 'city' },
+    { name: 'Mysuru', lat: 12.2958, lng: 76.6394, tier: 'city' },
+    { name: 'Bhubaneswar', lat: 20.2961, lng: 85.8245, tier: 'city' },
+    { name: 'Dehradun', lat: 30.3165, lng: 78.0322, tier: 'city' },
+    { name: 'Shimla', lat: 31.1048, lng: 77.1734, tier: 'city' },
+    { name: 'Gangtok', lat: 27.3389, lng: 88.6065, tier: 'city' },
+    { name: 'Shillong', lat: 25.5788, lng: 91.8933, tier: 'city' },
+    { name: 'Imphal', lat: 24.8170, lng: 93.9368, tier: 'city' },
+    { name: 'Ranchi', lat: 23.3441, lng: 85.3096, tier: 'city' },
+    { name: 'Raipur', lat: 21.2514, lng: 81.6296, tier: 'city' },
+    { name: 'Panaji', lat: 15.4909, lng: 73.8278, tier: 'city' },
+    { name: 'Thiruvananthapuram', lat: 8.5241, lng: 76.9366, tier: 'city' },
+    { name: 'Chandigarh City', lat: 30.7333, lng: 76.7794, tier: 'city' },
+    { name: 'Surat', lat: 21.1702, lng: 72.8311, tier: 'city' },
+    { name: 'Jodhpur', lat: 26.2389, lng: 73.0243, tier: 'city' },
+  ];
+
+  const INDIA_MOUNTAINS = [
+    { name: 'Kangchenjunga', lat: 27.7025, lng: 88.1475, tier: 'mountain' },
+    { name: 'Nanda Devi', lat: 30.3801, lng: 79.9707, tier: 'mountain' },
+    { name: 'Kamet', lat: 30.9236, lng: 79.5951, tier: 'mountain' },
+    { name: 'Anamudi (Kerala)', lat: 10.1653, lng: 77.0653, tier: 'mountain' },
+    { name: 'Doddabetta (Nilgiris)', lat: 11.4064, lng: 76.7359, tier: 'mountain' },
+    { name: 'Guru Shikhar (Mount Abu)', lat: 24.6717, lng: 72.7139, tier: 'mountain' },
+    { name: 'Saramati (Nagaland)', lat: 25.7500, lng: 95.0000, tier: 'mountain' },
+    { name: 'Parasnath (Jharkhand)', lat: 23.9660, lng: 86.1666, tier: 'mountain' },
+    { name: 'Girnar (Gujarat)', lat: 21.5222, lng: 70.5135, tier: 'mountain' },
+    { name: 'Panchchuli', lat: 30.2333, lng: 80.4167, tier: 'mountain' },
+  ];
+
+  const WORLD_CONTINENTS = [
+    { name: 'Africa', lat: 2.0, lng: 20.0, tier: 'continent' },
+    { name: 'Asia', lat: 34.0, lng: 100.0, tier: 'continent' },
+    { name: 'Europe', lat: 54.0, lng: 15.0, tier: 'continent' },
+    { name: 'North America', lat: 45.0, lng: -100.0, tier: 'continent' },
+    { name: 'South America', lat: -15.0, lng: -60.0, tier: 'continent' },
+    { name: 'Australia / Oceania', lat: -25.0, lng: 135.0, tier: 'continent' },
+    { name: 'Antarctica', lat: -80.0, lng: 0.0, tier: 'continent' },
+  ];
+
+  const WORLD_OCEANS = [
+    { name: 'Pacific Ocean', lat: 0, lng: -160, tier: 'ocean' },
+    { name: 'Atlantic Ocean', lat: 0, lng: -30, tier: 'ocean' },
+    { name: 'Indian Ocean', lat: -10, lng: 75, tier: 'ocean' },
+    { name: 'Southern Ocean', lat: -65, lng: 0, tier: 'ocean' },
+    { name: 'Arctic Ocean', lat: 85, lng: 0, tier: 'ocean' },
+  ];
+
+  const WORLD_COUNTRIES = [
+    { name: 'United States', lat: 38.9072, lng: -77.0369, tier: 'country' },
+    { name: 'Canada', lat: 45.4215, lng: -75.6972, tier: 'country' },
+    { name: 'Mexico', lat: 19.4326, lng: -99.1332, tier: 'country' },
+    { name: 'Brazil', lat: -15.7939, lng: -47.8828, tier: 'country' },
+    { name: 'Argentina', lat: -34.6037, lng: -58.3816, tier: 'country' },
+    { name: 'Chile', lat: -33.4489, lng: -70.6693, tier: 'country' },
+    { name: 'Peru', lat: -12.0464, lng: -77.0428, tier: 'country' },
+    { name: 'Colombia', lat: 4.7110, lng: -74.0721, tier: 'country' },
+    { name: 'Venezuela', lat: 10.4806, lng: -66.9036, tier: 'country' },
+    { name: 'United Kingdom', lat: 51.5074, lng: -0.1278, tier: 'country' },
+    { name: 'France', lat: 48.8566, lng: 2.3522, tier: 'country' },
+    { name: 'Germany', lat: 52.5200, lng: 13.4050, tier: 'country' },
+    { name: 'Spain', lat: 40.4168, lng: -3.7038, tier: 'country' },
+    { name: 'Portugal', lat: 38.7223, lng: -9.1393, tier: 'country' },
+    { name: 'Italy', lat: 41.9028, lng: 12.4964, tier: 'country' },
+    { name: 'Switzerland', lat: 46.9480, lng: 7.4474, tier: 'country' },
+    { name: 'Netherlands', lat: 52.3676, lng: 4.9041, tier: 'country' },
+    { name: 'Belgium', lat: 50.8503, lng: 4.3517, tier: 'country' },
+    { name: 'Ireland', lat: 53.3498, lng: -6.2603, tier: 'country' },
+    { name: 'Norway', lat: 59.9139, lng: 10.7522, tier: 'country' },
+    { name: 'Sweden', lat: 59.3293, lng: 18.0686, tier: 'country' },
+    { name: 'Finland', lat: 60.1699, lng: 24.9384, tier: 'country' },
+    { name: 'Denmark', lat: 55.6761, lng: 12.5683, tier: 'country' },
+    { name: 'Poland', lat: 52.2297, lng: 21.0122, tier: 'country' },
+    { name: 'Austria', lat: 48.2082, lng: 16.3738, tier: 'country' },
+    { name: 'Greece', lat: 37.9838, lng: 23.7275, tier: 'country' },
+    { name: 'Ukraine', lat: 50.4501, lng: 30.5234, tier: 'country' },
+    { name: 'Russia', lat: 55.7558, lng: 37.6173, tier: 'country' },
+    { name: 'Turkey', lat: 39.9334, lng: 32.8597, tier: 'country' },
+    { name: 'Egypt', lat: 30.0444, lng: 31.2357, tier: 'country' },
+    { name: 'Morocco', lat: 34.0209, lng: -6.8416, tier: 'country' },
+    { name: 'Algeria', lat: 36.7538, lng: 3.0588, tier: 'country' },
+    { name: 'Nigeria', lat: 9.0765, lng: 7.3986, tier: 'country' },
+    { name: 'Ghana', lat: 5.6037, lng: -0.1870, tier: 'country' },
+    { name: 'Kenya', lat: -1.2921, lng: 36.8219, tier: 'country' },
+    { name: 'Ethiopia', lat: 9.0250, lng: 38.7469, tier: 'country' },
+    { name: 'South Africa', lat: -25.7479, lng: 28.2293, tier: 'country' },
+    { name: 'Tanzania', lat: -6.1630, lng: 35.7516, tier: 'country' },
+    { name: 'Saudi Arabia', lat: 24.7136, lng: 46.6753, tier: 'country' },
+    { name: 'United Arab Emirates', lat: 24.4539, lng: 54.3773, tier: 'country' },
+    { name: 'Israel', lat: 31.7683, lng: 35.2137, tier: 'country' },
+    { name: 'Iran', lat: 35.6892, lng: 51.3890, tier: 'country' },
+    { name: 'Iraq', lat: 33.3152, lng: 44.3661, tier: 'country' },
+    { name: 'Pakistan', lat: 33.6844, lng: 73.0479, tier: 'country' },
+    { name: 'India', lat: 28.6139, lng: 77.2090, tier: 'country' },
+    { name: 'Bangladesh', lat: 23.8103, lng: 90.4125, tier: 'country' },
+    { name: 'Sri Lanka', lat: 6.9271, lng: 79.8612, tier: 'country' },
+    { name: 'Nepal', lat: 27.7172, lng: 85.3240, tier: 'country' },
+    { name: 'Bhutan', lat: 27.4728, lng: 89.6390, tier: 'country' },
+    { name: 'China', lat: 39.9042, lng: 116.4074, tier: 'country' },
+    { name: 'Japan', lat: 35.6762, lng: 139.6503, tier: 'country' },
+    { name: 'South Korea', lat: 37.5665, lng: 126.9780, tier: 'country' },
+    { name: 'North Korea', lat: 39.0392, lng: 125.7625, tier: 'country' },
+    { name: 'Mongolia', lat: 47.8864, lng: 106.9057, tier: 'country' },
+    { name: 'Vietnam', lat: 21.0278, lng: 105.8342, tier: 'country' },
+    { name: 'Thailand', lat: 13.7563, lng: 100.5018, tier: 'country' },
+    { name: 'Myanmar', lat: 19.7633, lng: 96.0785, tier: 'country' },
+    { name: 'Cambodia', lat: 11.5564, lng: 104.9282, tier: 'country' },
+    { name: 'Malaysia', lat: 3.1390, lng: 101.6869, tier: 'country' },
+    { name: 'Singapore', lat: 1.3521, lng: 103.8198, tier: 'country' },
+    { name: 'Indonesia', lat: -6.2088, lng: 106.8456, tier: 'country' },
+    { name: 'Philippines', lat: 14.5995, lng: 120.9842, tier: 'country' },
+    { name: 'Australia', lat: -35.2809, lng: 149.1300, tier: 'country' },
+    { name: 'New Zealand', lat: -41.2865, lng: 174.7762, tier: 'country' },
+    { name: 'Kazakhstan', lat: 51.1694, lng: 71.4491, tier: 'country' },
+    { name: 'Uzbekistan', lat: 41.2995, lng: 69.2401, tier: 'country' },
+    { name: 'Afghanistan', lat: 34.5553, lng: 69.2075, tier: 'country' },
+    { name: 'Qatar', lat: 25.2854, lng: 51.5310, tier: 'country' },
+    { name: 'Kuwait', lat: 29.3759, lng: 47.9774, tier: 'country' },
+    { name: 'Jordan', lat: 31.9454, lng: 35.9284, tier: 'country' },
+    { name: 'Lebanon', lat: 33.8938, lng: 35.5018, tier: 'country' },
+    { name: 'Syria', lat: 33.5138, lng: 36.2765, tier: 'country' },
+    { name: 'Cuba', lat: 23.1136, lng: -82.3666, tier: 'country' },
+    { name: 'Jamaica', lat: 18.0179, lng: -76.8099, tier: 'country' },
+    { name: 'Panama', lat: 8.9824, lng: -79.5199, tier: 'country' },
+    { name: 'Costa Rica', lat: 9.9281, lng: -84.0907, tier: 'country' },
+    { name: 'Ecuador', lat: -0.1807, lng: -78.4678, tier: 'country' },
+    { name: 'Bolivia', lat: -16.4897, lng: -68.1193, tier: 'country' },
+    { name: 'Paraguay', lat: -25.2637, lng: -57.5759, tier: 'country' },
+    { name: 'Uruguay', lat: -34.9011, lng: -56.1645, tier: 'country' },
+    { name: 'Iceland', lat: 64.1466, lng: -21.9426, tier: 'country' },
+    { name: 'Czech Republic', lat: 50.0755, lng: 14.4378, tier: 'country' },
+    { name: 'Hungary', lat: 47.4979, lng: 19.0402, tier: 'country' },
+    { name: 'Romania', lat: 44.4268, lng: 26.1025, tier: 'country' },
+    { name: 'Bulgaria', lat: 42.6977, lng: 23.3219, tier: 'country' },
+    { name: 'Serbia', lat: 44.7866, lng: 20.4489, tier: 'country' },
+    { name: 'Croatia', lat: 45.8150, lng: 15.9819, tier: 'country' },
+    { name: 'Slovakia', lat: 48.1486, lng: 17.1077, tier: 'country' },
+    { name: 'Georgia', lat: 41.7151, lng: 44.8271, tier: 'country' },
+    { name: 'Armenia', lat: 40.1792, lng: 44.4991, tier: 'country' },
+    { name: 'Azerbaijan', lat: 40.4093, lng: 49.8671, tier: 'country' },
+    { name: 'Fiji', lat: -18.1416, lng: 178.4419, tier: 'country' },
+    { name: 'Papua New Guinea', lat: -9.4438, lng: 147.1803, tier: 'country' },
+  ];
+
+  const WORLD_MOUNTAINS = [
+    { name: 'Mount Everest', lat: 27.9881, lng: 86.9250, tier: 'mountain' },
+    { name: 'K2', lat: 35.8825, lng: 76.5133, tier: 'mountain' },
+    { name: 'Denali', lat: 63.0692, lng: -151.0070, tier: 'mountain' },
+    { name: 'Aconcagua', lat: -32.6532, lng: -70.0109, tier: 'mountain' },
+    { name: 'Kilimanjaro', lat: -3.0674, lng: 37.3556, tier: 'mountain' },
+    { name: 'Mount Elbrus', lat: 43.3499, lng: 42.4453, tier: 'mountain' },
+    { name: 'Vinson Massif', lat: -78.5254, lng: -85.6172, tier: 'mountain' },
+    { name: 'Puncak Jaya', lat: -4.0784, lng: 137.1591, tier: 'mountain' },
+    { name: 'Matterhorn', lat: 45.9763, lng: 7.6586, tier: 'mountain' },
+    { name: 'Mont Blanc', lat: 45.8326, lng: 6.8652, tier: 'mountain' },
+    { name: 'Mount Fuji', lat: 35.3606, lng: 138.7274, tier: 'mountain' },
+    { name: 'Mount Ararat', lat: 39.7019, lng: 44.2983, tier: 'mountain' },
+    { name: 'Mount Olympus', lat: 40.0853, lng: 22.3584, tier: 'mountain' },
+    { name: 'Table Mountain', lat: -33.9628, lng: 18.4098, tier: 'mountain' },
+  ];
+
+  const ALL_GEO_POINTS = [
+    ...WORLD_CONTINENTS, ...WORLD_OCEANS, ...WORLD_COUNTRIES,
+    ...INDIA_STATES, ...INDIA_CITIES, ...INDIA_MOUNTAINS, ...WORLD_MOUNTAINS
+  ];
+
+  const TIER_COLOR = {
+    ocean: '#3E7CB1', continent: '#E4572E', country: '#F3A712',
+    state: '#2F4A3C', city: '#B4502F', mountain: '#7A4B8A'
+  };
+  const TIER_RADIUS = {
+    ocean: 0.55, continent: 0.55, country: 0.4, state: 0.32, city: 0.24, mountain: 0.24
+  };
+
   let myGlobe = null;
-  let globePoints = [...DEFAULT_PLACES];
+  let searchedPoints = [];
+  let lastTierKey = '';
+
+  // Zoom (camera altitude) → which detail tiers are visible.
+  // Lower altitude = zoomed in = more detail shown.
+  function tiersForAltitude(alt){
+    if(alt > 2.0) return ['continent', 'ocean'];
+    if(alt > 1.0) return ['continent', 'ocean', 'country'];
+    if(alt > 0.45) return ['continent', 'ocean', 'country', 'state'];
+    return ['continent', 'ocean', 'country', 'state', 'city', 'mountain'];
+  }
+
+  function refreshVisiblePoints(){
+    if(!myGlobe) return;
+    const alt = myGlobe.pointOfView().altitude;
+    const tiers = tiersForAltitude(alt);
+    const key = tiers.join(',');
+    if(key === lastTierKey) return;
+    lastTierKey = key;
+    const visible = ALL_GEO_POINTS.filter(p => tiers.includes(p.tier));
+    myGlobe.pointsData([...visible, ...searchedPoints]);
+  }
 
   function initGlobe(){
+    const initialPoints = ALL_GEO_POINTS.filter(p => tiersForAltitude(2.5).includes(p.tier));
     myGlobe = Globe()(document.getElementById('globeContainer'))
       .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
       .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
       .backgroundColor('#0b1622')
-      .pointsData(globePoints)
+      .pointsData(initialPoints)
       .pointLat('lat')
       .pointLng('lng')
-      .pointLabel('name')
-      .pointColor(()=> '#B4502F')
-      .pointRadius(0.35)
+      .pointLabel(d => `${d.name} (${d.tier})`)
+      .pointColor(d => TIER_COLOR[d.tier] || '#B4502F')
+      .pointRadius(d => TIER_RADIUS[d.tier] || 0.25)
       .pointAltitude(0.01)
       .onPointClick(p => showPlace(p.name, p.lat, p.lng))
       .width(document.getElementById('globeContainer').clientWidth)
@@ -1622,6 +1872,8 @@
 
     myGlobe.controls().autoRotate = true;
     myGlobe.controls().autoRotateSpeed = 0.4;
+
+    setInterval(refreshVisiblePoints, 400);
 
     window.addEventListener('resize', ()=>{
       if(myGlobe) myGlobe.width(document.getElementById('globeContainer').clientWidth);
@@ -1645,15 +1897,14 @@
 
     if(myGlobe){
       myGlobe.controls().autoRotate = false;
-      myGlobe.pointOfView({ lat, lng, altitude: 1.6 }, 1200);
+      myGlobe.pointOfView({ lat, lng, altitude: 0.6 }, 1200);
     }
 
     try{
       const tzRes = await fetch(`https://timeapi.io/api/Time/current/coordinate?latitude=${lat}&longitude=${lng}`);
       if(tzRes.ok){
         const tz = await tzRes.json();
-        const timeStr = `${tz.time} (${tz.timeZone})`;
-        placeTime.textContent = timeStr;
+        placeTime.textContent = `${tz.time} (${tz.timeZone})`;
       } else {
         placeTime.textContent = 'unavailable';
       }
@@ -1685,8 +1936,9 @@
         const r = results[0];
         const lat = parseFloat(r.lat), lng = parseFloat(r.lon);
         const label = r.display_name.split(',').slice(0,2).join(',');
-        globePoints = [...globePoints, { name: label, lat, lng }];
-        if(myGlobe) myGlobe.pointsData(globePoints);
+        searchedPoints = [...searchedPoints, { name: label, lat, lng, tier: 'city' }];
+        lastTierKey = ''; // force a refresh so the new point shows immediately
+        refreshVisiblePoints();
         showPlace(label, lat, lng);
       } else {
         alert('Could not find that place. Try a different search.');
