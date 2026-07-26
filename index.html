@@ -6,6 +6,7 @@
 <title>Wisdom Wise — a personal catalog</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/globe.gl"></script>
 <style>
   :root{
     --manila: #E4D8B8;
@@ -163,6 +164,63 @@
     max-width:920px;
     margin:0 auto;
     padding:26px 24px 80px;
+  }
+
+  /* ---------- Catalog / World Map view switcher ---------- */
+  .view-switch{
+    max-width:920px;
+    margin:14px auto 0;
+    padding:0 24px;
+    display:flex;
+    gap:8px;
+  }
+  .viewbtn{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:.05em;
+    padding:8px 16px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    background:var(--card);
+    color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .viewbtn.active{
+    background:var(--shelf-green);
+    border-color:var(--shelf-green);
+    color:#EFE9D4;
+  }
+
+  /* ---------- World Map / globe view ---------- */
+  .place-info{
+    margin-top:16px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:18px 20px;
+  }
+  .place-info .place-name{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:20px;
+    margin-bottom:12px;
+  }
+  .place-info .place-stats{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(140px,1fr));
+    gap:14px;
+  }
+  .place-info .place-stats > div{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .place-info .stat-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:#B7AD8E;
   }
   .grid{
     display:grid;
@@ -554,6 +612,11 @@
   </div>
 </header>
 
+<div class="view-switch">
+  <button class="viewbtn active" id="viewCatalogBtn">📚 Catalog</button>
+  <button class="viewbtn" id="viewGlobeBtn">🌍 World Map</button>
+</div>
+
 <nav class="drawers" id="drawers">
   <button class="tab active" data-cat="all">All Drawers</button>
   <button class="tab" data-cat="notes">Notes</button>
@@ -565,12 +628,31 @@
 </nav>
 
 <main>
-  <div class="rail">
-    <input id="search" type="text" placeholder="Search the catalog…">
-    <span class="hint">title / tag / text</span>
+  <div id="catalogView">
+    <div class="rail">
+      <input id="search" type="text" placeholder="Search the catalog…">
+      <span class="hint">title / tag / text</span>
+    </div>
+
+    <div class="grid" id="grid"></div>
   </div>
 
-  <div class="grid" id="grid"></div>
+  <div id="globeView" style="display:none;">
+    <div class="rail" style="margin-bottom:16px;">
+      <input id="placeSearch" type="text" placeholder="Search for a place…">
+      <button class="btn primary" id="placeSearchBtn" style="flex-shrink:0;">Go</button>
+    </div>
+    <div id="globeContainer" style="width:100%; height:520px; border:1px solid var(--line); border-radius:4px; overflow:hidden; background:#0b1622;"></div>
+    <div id="placeInfo" class="place-info" style="display:none;">
+      <div class="place-name" id="placeName"></div>
+      <div class="place-stats">
+        <div><span class="stat-label">Latitude</span><span id="placeLat"></span></div>
+        <div><span class="stat-label">Longitude</span><span id="placeLng"></span></div>
+        <div><span class="stat-label">Local time</span><span id="placeTime">loading…</span></div>
+        <div><span class="stat-label">Temperature</span><span id="placeTemp">loading…</span></div>
+      </div>
+    </div>
+  </div>
 </main>
 
 <footer>
@@ -1480,6 +1562,140 @@
     if(ok){ customizeOverlay.classList.remove('open'); }
     else { siteSettings = prevSettings; applySiteSettings(); }
   });
+
+  // ---- Catalog / World Map view switching ----
+  const viewCatalogBtn = document.getElementById('viewCatalogBtn');
+  const viewGlobeBtn = document.getElementById('viewGlobeBtn');
+  const catalogView = document.getElementById('catalogView');
+  const globeView = document.getElementById('globeView');
+  const drawersNav = document.getElementById('drawers');
+  let globeInitialized = false;
+
+  viewCatalogBtn.addEventListener('click', ()=>{
+    viewCatalogBtn.classList.add('active');
+    viewGlobeBtn.classList.remove('active');
+    catalogView.style.display = 'block';
+    globeView.style.display = 'none';
+    drawersNav.style.display = 'flex';
+  });
+  viewGlobeBtn.addEventListener('click', ()=>{
+    viewGlobeBtn.classList.add('active');
+    viewCatalogBtn.classList.remove('active');
+    globeView.style.display = 'block';
+    catalogView.style.display = 'none';
+    drawersNav.style.display = 'none';
+    if(!globeInitialized){ initGlobe(); globeInitialized = true; }
+  });
+
+  // ---- World Map / globe ----
+  const DEFAULT_PLACES = [
+    { name: 'New York, USA', lat: 40.7128, lng: -74.0060 },
+    { name: 'London, UK', lat: 51.5074, lng: -0.1278 },
+    { name: 'Paris, France', lat: 48.8566, lng: 2.3522 },
+    { name: 'Tokyo, Japan', lat: 35.6762, lng: 139.6503 },
+    { name: 'Sydney, Australia', lat: -33.8688, lng: 151.2093 },
+    { name: 'Mumbai, India', lat: 19.0760, lng: 72.8777 },
+    { name: 'Cairo, Egypt', lat: 30.0444, lng: 31.2357 },
+    { name: 'Rio de Janeiro, Brazil', lat: -22.9068, lng: -43.1729 },
+    { name: 'Cape Town, South Africa', lat: -33.9249, lng: 18.4241 },
+    { name: 'Moscow, Russia', lat: 55.7558, lng: 37.6173 },
+  ];
+
+  let myGlobe = null;
+  let globePoints = [...DEFAULT_PLACES];
+
+  function initGlobe(){
+    myGlobe = Globe()(document.getElementById('globeContainer'))
+      .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+      .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+      .backgroundColor('#0b1622')
+      .pointsData(globePoints)
+      .pointLat('lat')
+      .pointLng('lng')
+      .pointLabel('name')
+      .pointColor(()=> '#B4502F')
+      .pointRadius(0.35)
+      .pointAltitude(0.01)
+      .onPointClick(p => showPlace(p.name, p.lat, p.lng))
+      .width(document.getElementById('globeContainer').clientWidth)
+      .height(520);
+
+    myGlobe.controls().autoRotate = true;
+    myGlobe.controls().autoRotateSpeed = 0.4;
+
+    window.addEventListener('resize', ()=>{
+      if(myGlobe) myGlobe.width(document.getElementById('globeContainer').clientWidth);
+    });
+  }
+
+  const placeInfo = document.getElementById('placeInfo');
+  const placeName = document.getElementById('placeName');
+  const placeLat = document.getElementById('placeLat');
+  const placeLng = document.getElementById('placeLng');
+  const placeTime = document.getElementById('placeTime');
+  const placeTemp = document.getElementById('placeTemp');
+
+  async function showPlace(name, lat, lng){
+    placeInfo.style.display = 'block';
+    placeName.textContent = name;
+    placeLat.textContent = lat.toFixed(4) + '°';
+    placeLng.textContent = lng.toFixed(4) + '°';
+    placeTime.textContent = 'loading…';
+    placeTemp.textContent = 'loading…';
+
+    if(myGlobe){
+      myGlobe.controls().autoRotate = false;
+      myGlobe.pointOfView({ lat, lng, altitude: 1.6 }, 1200);
+    }
+
+    try{
+      const tzRes = await fetch(`https://timeapi.io/api/Time/current/coordinate?latitude=${lat}&longitude=${lng}`);
+      if(tzRes.ok){
+        const tz = await tzRes.json();
+        const timeStr = `${tz.time} (${tz.timeZone})`;
+        placeTime.textContent = timeStr;
+      } else {
+        placeTime.textContent = 'unavailable';
+      }
+    }catch(e){ placeTime.textContent = 'unavailable'; }
+
+    try{
+      const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true`);
+      if(wRes.ok){
+        const w = await wRes.json();
+        placeTemp.textContent = `${w.current_weather.temperature}°C`;
+      } else {
+        placeTemp.textContent = 'unavailable';
+      }
+    }catch(e){ placeTemp.textContent = 'unavailable'; }
+  }
+
+  document.getElementById('placeSearchBtn').addEventListener('click', doPlaceSearch);
+  document.getElementById('placeSearch').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') doPlaceSearch(); });
+
+  async function doPlaceSearch(){
+    const q = document.getElementById('placeSearch').value.trim();
+    if(!q) return;
+    const btn = document.getElementById('placeSearchBtn');
+    btn.textContent = 'Searching…'; btn.disabled = true;
+    try{
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`);
+      const results = await res.json();
+      if(results && results.length){
+        const r = results[0];
+        const lat = parseFloat(r.lat), lng = parseFloat(r.lon);
+        const label = r.display_name.split(',').slice(0,2).join(',');
+        globePoints = [...globePoints, { name: label, lat, lng }];
+        if(myGlobe) myGlobe.pointsData(globePoints);
+        showPlace(label, lat, lng);
+      } else {
+        alert('Could not find that place. Try a different search.');
+      }
+    }catch(e){
+      alert('Search failed — check your connection.');
+    }
+    btn.textContent = 'Go'; btn.disabled = false;
+  }
 </script>
 
 </body>
