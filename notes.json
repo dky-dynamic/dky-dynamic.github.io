@@ -112,10 +112,10 @@
   ],
   "settings": {
     "colors": {
-      "header": "#33304b",
-      "accent": "#b4502f",
-      "bg": "#e6cd8e"
+      "header": "#303d4b",
+      "accent": "#b64a2f",
+      "bg": "#c7e68e"
     },
-    "layout": "tiles"
+    "layout": "grid"
   }
 }
