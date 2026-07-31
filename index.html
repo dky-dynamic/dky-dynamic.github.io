@@ -651,6 +651,7 @@
   <button class="tab" data-cat="writing">Writing</button>
   <button class="tab" data-cat="quiz">Quiz / Test Series</button>
   <button class="tab" data-cat="wisdom">Wisdom Words</button>
+  <button class="tab" data-cat="affairs">Current Affairs</button>
   <button class="tab" data-cat="personal" id="personalTab" style="display:none;">Personal</button>
 </nav>
 
@@ -759,6 +760,7 @@
         <option value="writing">Writing</option>
         <option value="quiz">Quiz / Test Series</option>
         <option value="wisdom">Wisdom Words</option>
+        <option value="affairs">Current Affairs</option>
         <option value="personal">Personal (only you)</option>
       </select>
     </div>
@@ -782,6 +784,20 @@
           <button type="button" class="btn" id="italicBtn" style="padding:4px 10px; font-style:italic;">i</button>
         </div>
         <textarea id="fBody" placeholder="Type the note itself here… (select text and click B / i to format)"></textarea>
+      </div>
+    </div>
+
+    <div id="affairsFields" style="display:none;">
+      <div class="field">
+        <label for="fSourceName">Source name</label>
+        <input id="fSourceName" type="text" placeholder="e.g. Reuters, The Hindu, BBC News">
+      </div>
+      <div class="field">
+        <label for="fSourceUrl">Source URL (citation link)</label>
+        <input id="fSourceUrl" type="url" placeholder="https://...">
+      </div>
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:#B7AD8E; margin:-6px 0 14px; line-height:1.5;">
+        Write the summary above in your own words &mdash; don't copy sentences from the source. This link is shown as a citation at the end of the card.
       </div>
     </div>
 
@@ -904,7 +920,13 @@
   const GH_BRANCH = 'main';
   const TOKEN_KEY = 'field-notes-gh-token';
 
-  const CAT_PREFIX = { notes:'N', knowledge:'KT', writing:'W', quiz:'Q', wisdom:'WW', personal:'P' };
+  const CAT_PREFIX = { notes:'N', knowledge:'KT', writing:'W', quiz:'Q', wisdom:'WW', affairs:'CA', personal:'P' };
+
+  // ---- Current Affairs workflow ----
+  // Cards with cat === 'affairs' are current-affairs summaries pulled from an outside
+  // news/source site. Rule: always paraphrase in your own words (never copy sentences
+  // verbatim from the source) and always fill sourceName + sourceUrl so the card shows
+  // a visible citation link back to the original article.
   const SWATCHES = ['#B4502F', '#2F4A3C', '#8A6D3B', '#4B5FA8', '#7A4B8A', '#5B5548'];
 
   let userNotes = [];       // loaded from notes.json in the repo
@@ -1113,7 +1135,7 @@
         <p>${qCount ? qCount + ' questions' : stripMd(n.excerpt)}</p>
         <div class="note-foot">
           <span class="callno" ${accent ? `style="color:${accent};"` : ''}>${n.callno}</span>
-          <span>${n.cat}${attachCount ? ' · 📎' + attachCount : ''}</span>
+          <span>${(n.cat === 'affairs' && n.sourceName) ? n.sourceName : n.cat}${attachCount ? ' · 📎' + attachCount : ''}</span>
         </div>
       `;
       el.addEventListener('click', (e)=>{
@@ -1194,10 +1216,14 @@
 
   function updateLabelsForCat(){
     const isQuiz = fCat.value === 'quiz';
+    const isAffairs = fCat.value === 'affairs';
     standardFields.style.display = isQuiz ? 'none' : 'block';
     quizFields.style.display = isQuiz ? 'block' : 'none';
-    fTitleLabel.textContent = isQuiz ? 'Quiz title' : 'Title';
-    fTitle.placeholder = isQuiz ? 'e.g. History Trivia Round 1' : "What's this note called?";
+    document.getElementById('affairsFields').style.display = isAffairs ? 'block' : 'none';
+    fTitleLabel.textContent = isQuiz ? 'Quiz title' : (isAffairs ? 'Headline' : 'Title');
+    fTitle.placeholder = isQuiz ? 'e.g. History Trivia Round 1' : (isAffairs ? "e.g. What happened, in a few words" : "What's this note called?");
+    fBodyLabel.textContent = isAffairs ? 'Summary (write it in your own words)' : 'Contents';
+    fBody.placeholder = isAffairs ? 'Paraphrase the key points here — avoid copying sentences directly from the source…' : "Type the note itself here… (select text and click B / i to format)";
   }
   fCat.addEventListener('change', updateLabelsForCat);
 
@@ -1277,6 +1303,8 @@
       fTitle.value = note.title || '';
       fCat.value = note.cat || 'notes';
       fTag.value = note.tag || '';
+      document.getElementById('fSourceName').value = note.sourceName || '';
+      document.getElementById('fSourceUrl').value = note.sourceUrl || '';
       selectSwatch(note.color);
       if(note.cat === 'quiz'){
         const qs = note.questions || [];
@@ -1290,6 +1318,8 @@
       modalSub.textContent = "it'll be filed into the catalog on save";
       document.getElementById('saveBtn').textContent = 'Save card';
       fTitle.value = ''; fTag.value = ''; fBody.value = ''; fCat.value = 'notes';
+      document.getElementById('fSourceName').value = '';
+      document.getElementById('fSourceUrl').value = '';
       selectSwatch(SWATCHES[0]);
       fQCount.value = 5;
       buildQuizBlocksFresh(5, []);
@@ -1330,6 +1360,14 @@
       excerpt = stripMd(body).length > 130 ? stripMd(body).slice(0,130).trim() + '…' : stripMd(body);
     }
 
+    const isAffairs = cat === 'affairs';
+    const sourceName = isAffairs ? document.getElementById('fSourceName').value.trim() : '';
+    const sourceUrl = isAffairs ? document.getElementById('fSourceUrl').value.trim() : '';
+    if(isAffairs && !sourceUrl){
+      alert('Add a source URL — every Current Affairs card needs a citation link.');
+      return;
+    }
+
     const saveBtn = document.getElementById('saveBtn');
     saveBtn.textContent = 'Saving…'; saveBtn.disabled = true;
 
@@ -1357,6 +1395,8 @@
       body: isQuiz ? '' : body,
       questions: isQuiz ? questions : undefined,
       color: fColor.value || null,
+      sourceName: isAffairs ? sourceName : undefined,
+      sourceUrl: isAffairs ? sourceUrl : undefined,
       attachments,
       userAdded: true
     };
@@ -1476,7 +1516,14 @@
     } else {
       viewBody.style.display = 'block';
       viewQuiz.style.display = 'none';
-      viewBody.innerHTML = renderRichText(n.body || n.excerpt);
+      let bodyHtml = renderRichText(n.body || n.excerpt);
+      if(n.cat === 'affairs' && n.sourceUrl){
+        bodyHtml += `<div style="margin-top:16px; padding-top:12px; border-top:1px dashed var(--line); font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#B7AD8E; line-height:1.6;">
+          Summarized for personal reference · Source: ${n.sourceName || 'original article'} —
+          <a href="${n.sourceUrl}" target="_blank" rel="noopener" style="color:var(--rust); text-decoration:underline;">read the full article</a>
+        </div>`;
+      }
+      viewBody.innerHTML = bodyHtml;
     }
 
     viewAttachments.innerHTML = '';
